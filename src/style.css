@@ -602,6 +602,33 @@ h3 {
   width: clamp(70px, 20vw, 100px);
 }
 
+/* The title Minder can be grabbed and thrown (see fling.ts). */
+#title-minder,
+.minder-floater {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+#title-minder.flung {
+  visibility: hidden;
+  animation: none;
+}
+.minder-floater {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 15;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6));
+  will-change: transform;
+}
+.minder-floater.grabbed {
+  cursor: grabbing;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.55));
+}
+
 .logo {
   width: 120px;
   opacity: 0.9;
@@ -1135,11 +1162,6 @@ html[dir='rtl'] #banner {
   direction: rtl;
 }
 
-.lang-btn {
-  min-height: 40px;
-  padding: 6px 16px;
-  font-size: 15px;
-}
 .lang-list {
   width: 100%;
   display: grid;
@@ -1289,6 +1311,15 @@ html[dir='rtl'] #banner {
   border-radius: 999px;
   text-align: center;
   background: rgba(255, 255, 255, 0.15);
+}
+.lang-setting b {
+  min-width: 0;
+  background: none;
+  font-size: 26px;
+  line-height: 1;
+}
+html[dir='rtl'] .lang-setting b {
+  transform: scaleX(-1);
 }
 .setting[aria-checked='true'] {
   border-color: var(--green);

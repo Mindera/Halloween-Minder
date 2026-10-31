@@ -12,6 +12,8 @@ import {
   type ItemKind,
   type MinderDef,
 } from './config';
+import { buzz } from './feedback';
+import { Flingable } from './fling';
 import { Game } from './game';
 import { LANGS, detectLang, getLang, say, setLang, t, ta, type Lang } from './i18n';
 import { Input } from './input';
@@ -83,6 +85,16 @@ class App {
   private shareInfo?: ShareInfo;
   private wakeLock: { release(): Promise<void> } | null = null;
   private iconCache = new Map<string, HTMLCanvasElement>();
+  private lastBoing = 0;
+  private fling = new Flingable($<HTMLImageElement>('title-minder'), {
+    onBounce: (speed) => {
+      const now = performance.now();
+      if (now - this.lastBoing < 120) return;
+      this.lastBoing = now;
+      audio.play('boing');
+      buzz(speed > 1500 ? 'medium' : 'light');
+    },
+  });
 
   constructor() {
     this.game = new Game(
@@ -134,6 +146,7 @@ class App {
   // ------------------------------------------------------------ screens
 
   private show(id: string | null) {
+    if (id !== 'screen-title') this.fling.reset();
     for (const s of SCREENS) $(s).hidden = s !== id;
   }
 
@@ -154,10 +167,7 @@ class App {
     click('btn-settings', () => this.openSettings('screen-title'));
     click('btn-pause-settings', () => this.openSettings('screen-pause'));
     click('btn-settings-back', () => this.show(this.settingsFrom));
-    click('btn-lang', () => {
-      this.buildLanguages();
-      this.show('screen-lang');
-    });
+    click('btn-lang-back', () => this.openSettings(this.settingsFrom));
     click('btn-help', () => this.show('screen-help'));
     click('btn-scores', () => {
       this.buildScores();
@@ -276,6 +286,17 @@ class App {
     this.settingsFrom = from;
     const list = $('settings-list');
     list.innerHTML = '';
+    const lang = document.createElement('button');
+    lang.type = 'button';
+    lang.className = 'setting lang-setting';
+    lang.innerHTML = `<span><span>🌐 ${t('language.title')}</span><small></small></span><b aria-hidden="true">›</b>`;
+    lang.querySelector('small')!.textContent = LANGS.find((l) => l.id === getLang())?.name ?? 'English';
+    lang.addEventListener('click', () => {
+      audio.play('click');
+      this.buildLanguages();
+      this.show('screen-lang');
+    });
+    list.appendChild(lang);
     (['slow', 'bigButtons', 'colorBlind', 'noScary'] as (keyof Settings)[]).forEach((key) => {
       const label = key === 'bigButtons' ? 'big' : key;
       const b = document.createElement('button');
@@ -363,7 +384,7 @@ class App {
     $('toast').classList.remove('show');
     await setLang(l, true);
     this.applyLanguage();
-    this.show('screen-title');
+    this.openSettings(this.settingsFrom);
   }
 
   private refreshTitle() {
@@ -376,7 +397,6 @@ class App {
     $('btn-coop').classList.toggle('unavailable', !big);
     $('btn-coop').setAttribute('aria-disabled', String(!big));
     $('coop-sub').textContent = t(big ? 'title.coopSub' : 'title.coopSubSmall');
-    $('lang-name').textContent = LANGS.find((l) => l.id === getLang())?.name ?? 'English';
   }
 
   private openPicker(mode: Mode) {

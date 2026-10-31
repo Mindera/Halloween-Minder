@@ -20,13 +20,14 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 - 🚪 **Trick-or-treat doors** (1–3 per level): a treat (points or a random snack) or a trick (a harmless jump-scare ghost, or reversed controls for 3 seconds).
 - 🦇 **Monster pets**: a bonked monster sometimes (10%) turns into a tiny friendly bat or ghost that follows its Minder and shoots hearts at monsters for 15 seconds.
 - 👻 **Daily ghost**: your best Daily Challenge run of the day is recorded, and next time a see-through ghost Minder replays it so you can race yourself.
-- ⚙️ **Settings** (title screen or pause): slow mode (monsters at 60% speed), bigger buttons, colour-blind mode (Okabe-Ito colours plus ●/▲ shapes for portals, high-contrast rings for items) and no scary sounds.
+- 🤹 **Throw the Minder**: on the title screen you can grab the Minder, drag it around and fling it. It bounces off the screen edges and always springs back to its spot (`src/fling.ts`).
+- ⚙️ **Settings** (title screen or pause): language, slow mode (monsters at 60% speed), bigger buttons, colour-blind mode (Okabe-Ito colours plus ●/▲ shapes for portals, high-contrast rings for items) and no scary sounds.
 
 Settings, costumes, stats, stickers and the daily ghost are stored on the device (`localStorage`, see `src/progress.ts`).
 
 ## Languages
 
-English, Português (Portugal), Português (Brasil), Español, Français, Română, العربية (Arabic, right-to-left), हिन्दी (Hindi) and Tiếng Việt. The game picks the device language the first time and remembers a choice made with the 🌐 button on the title screen.
+English, Português (Portugal), Português (Brasil), Español, Français, Română, العربية (Arabic, right-to-left), हिन्दी (Hindi) and Tiếng Việt. The game picks the device language the first time and remembers a choice made under ⚙️ Settings → 🌐 Language.
 
 - Strings live in `src/i18n/`: `en.ts` is the source and defines the `Dict` type, so a translation that misses a key fails the build. Other languages are loaded on demand as separate chunks.
 - `{name}` placeholders are filled at runtime; strings shown with `data-i18n-html` may use `<b>` and `<br>`.
