@@ -252,6 +252,13 @@ export const ptBR: Dict = {
     back: 'A boneca viu você se mexer! De volta pro começo!',
     survived: 'VOCÊ SOBREVIVEU!',
   },
+  climb: {
+    best: 'RECORDE',
+    newBest: 'Novo recorde!',
+    bestWas: 'Recorde: {n}',
+    hintTouch: 'Segure à esquerda ou à direita para se mover · toque para atirar',
+    hintKeys: '← → para se mover · Espaço para atirar',
+  },
   minders: {
     classic: { name: 'Minder Clássico', tagline: 'O original. Nunca pisca.' },
     pumpkin: { name: 'Minder Abóbora', tagline: 'Corajoso até a última semente.' },

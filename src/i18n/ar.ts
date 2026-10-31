@@ -251,6 +251,13 @@ export const ar: Dict = {
     back: 'رأتك الدمية تتحرك! عُد إلى البداية!',
     survived: 'لقد نجوت!',
   },
+  climb: {
+    best: 'الأفضل',
+    newBest: 'رقم قياسي جديد!',
+    bestWas: 'الأفضل: {n}',
+    hintTouch: 'اضغط مطوّلًا يسارًا أو يمينًا للتحرّك · انقر للإطلاق',
+    hintKeys: '← → للتحرّك · Space للإطلاق',
+  },
   minders: {
     classic: { name: 'Minder الكلاسيكي', tagline: 'الأصلي. لا يرمش أبدًا.' },
     pumpkin: { name: 'Minder اليقطين', tagline: 'شجاعته بحجم يقطينة!' },

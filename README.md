@@ -111,6 +111,8 @@ src/
   audio.ts     WebAudio sound effects and music
   share.ts     score-card image and share flow
   config.ts    minders, monsters, items, difficulty curve
+  fling.ts     the title Minder you can grab and throw
+  climb.ts     🤫 a secret (spoilers inside)
 ```
 
 ## Deploying to GitHub Pages

@@ -258,6 +258,14 @@ export const en = {
     back: 'The doll saw you move! Back to the start!',
     survived: 'YOU SURVIVED!',
   },
+  /** The secret on the title screen (see climb.ts). */
+  climb: {
+    best: 'BEST',
+    newBest: 'New best!',
+    bestWas: 'Best: {n}',
+    hintTouch: 'Hold left or right to steer · tap to shoot',
+    hintKeys: '← → to steer · Space to shoot',
+  },
   minders: {
     classic: { name: 'Classic Minder', tagline: 'The original. Never blinks.' },
     pumpkin: { name: 'Pumpkin Minder', tagline: 'Gourd-geously brave.' },

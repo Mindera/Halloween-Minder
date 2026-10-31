@@ -39,7 +39,9 @@ export type Sfx =
   | 'chantFast'
   | 'chantSlow'
   | 'turn'
-  | 'zap';
+  | 'zap'
+  | 'hop'
+  | 'fall';
 
 const NOTE = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
 
@@ -289,6 +291,13 @@ export class SoundBoard {
       case 'zap':
         this.tone(1800, 0.4, 'sawtooth', 0.14, 160);
         this.noise(0.3, 0.3, 3200, 0, 2);
+        break;
+      case 'hop':
+        this.tone(240, 0.12, 'triangle', 0.16, 640);
+        break;
+      case 'fall':
+        // A cartoon whistle all the way down.
+        this.tone(1300, 0.9, 'sine', 0.12, 180);
         break;
       case 'firework':
         this.tone(900, 0.7, 'sine', 0.06, 2600);

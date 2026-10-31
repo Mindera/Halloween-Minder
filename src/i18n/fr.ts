@@ -251,6 +251,13 @@ export const fr: Dict = {
     back: "La poupée t'a vu bouger ! Retour au départ !",
     survived: 'TU AS SURVÉCU !',
   },
+  climb: {
+    best: 'RECORD',
+    newBest: 'Nouveau record !',
+    bestWas: 'Record : {n}',
+    hintTouch: 'Reste appuyé à gauche ou à droite pour te déplacer · touche pour tirer',
+    hintKeys: '← → pour te déplacer · Espace pour tirer',
+  },
   minders: {
     classic: { name: 'Minder Classique', tagline: "L'original. Ne cligne jamais de l'œil." },
     pumpkin: { name: 'Minder Citrouille', tagline: "Courageux jusqu'au dernier pépin." },

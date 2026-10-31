@@ -251,6 +251,13 @@ export const ro: Dict = {
     back: 'Păpușa te-a văzut mișcându-te! Înapoi la start!',
     survived: 'AI SUPRAVIEȚUIT!',
   },
+  climb: {
+    best: 'RECORD',
+    newBest: 'Record nou!',
+    bestWas: 'Record: {n}',
+    hintTouch: 'Ține apăsat în stânga sau în dreapta ca să te miști · atinge ca să tragi',
+    hintKeys: '← → ca să te miști · Space ca să tragi',
+  },
   minders: {
     classic: { name: 'Minder Clasic', tagline: 'Originalul. Nu clipește niciodată.' },
     pumpkin: { name: 'Minder Dovleac', tagline: 'Curajos până-n coajă.' },

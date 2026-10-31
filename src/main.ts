@@ -13,6 +13,7 @@ import {
   type ItemKind,
   type MinderDef,
 } from './config';
+import { Climb } from './climb';
 import { buzz } from './feedback';
 import { Flingable } from './fling';
 import { Game } from './game';
@@ -87,6 +88,9 @@ class App {
   private wakeLock: { release(): Promise<void> } | null = null;
   private iconCache = new Map<string, HTMLCanvasElement>();
   private lastBoing = 0;
+  /** Title Minder throws in a row: the third one, once it lands back home, opens the secret climb. */
+  private throws = 0;
+  private climb = new Climb();
   private fling = new Flingable($<HTMLImageElement>('title-minder'), {
     onBounce: (speed) => {
       const now = performance.now();
@@ -94,6 +98,13 @@ class App {
       this.lastBoing = now;
       audio.play('boing');
       buzz(speed > 1500 ? 'medium' : 'light');
+    },
+    onThrow: () => this.throws++,
+    onHome: () => {
+      if (this.throws < 3 || this.state !== 'menu' || $('screen-title').hidden) return;
+      this.throws = 0;
+      const m = this.minders[0];
+      this.climb.start($<HTMLImageElement>('title-minder'), document.querySelector<HTMLElement>('#screen-title .title-panel')!, m.iris, m.eye);
     },
   });
 
@@ -147,7 +158,11 @@ class App {
   // ------------------------------------------------------------ screens
 
   private show(id: string | null) {
-    if (id !== 'screen-title') this.fling.reset();
+    if (id !== 'screen-title') {
+      this.fling.reset();
+      this.climb.stop();
+      this.throws = 0;
+    }
     for (const s of SCREENS) $(s).hidden = s !== id;
   }
 

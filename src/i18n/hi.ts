@@ -251,6 +251,13 @@ export const hi: Dict = {
     back: 'गुड़िया ने तुम्हें हिलते देख लिया! वापस शुरुआत पर!',
     survived: 'तुम बच गए!',
   },
+  climb: {
+    best: 'बेस्ट',
+    newBest: 'नया रिकॉर्ड!',
+    bestWas: 'बेस्ट: {n}',
+    hintTouch: 'चलने के लिए बाएँ या दाएँ दबाकर रखो · दागने के लिए टैप करो',
+    hintKeys: '← → से चलो · Space से दागो',
+  },
   minders: {
     classic: { name: 'क्लासिक Minder', tagline: 'असली वाला। कभी पलक नहीं झपकाता।' },
     pumpkin: { name: 'कद्दू Minder', tagline: 'कद्दू जैसा गोल, शेर जैसा बहादुर!' },

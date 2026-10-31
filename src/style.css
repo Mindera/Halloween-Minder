@@ -635,6 +635,145 @@ h3 {
   filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.55));
 }
 
+/* The title screen's secret climb (see climb.ts): an overlay on top, the title scrolls away underneath. */
+.title-panel {
+  transition: opacity 0.6s;
+}
+.title-panel.climbing {
+  opacity: 0.3;
+}
+#title-minder.climbing {
+  visibility: hidden;
+  animation: none;
+}
+.climb {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.climb canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.climb-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: calc(10px + var(--safe-t)) calc(14px + var(--safe-r)) 0 calc(14px + var(--safe-l));
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 1px 3px rgba(10, 2, 20, 0.9),
+    0 0 8px rgba(10, 2, 20, 0.7);
+  pointer-events: none;
+  animation: fade 0.6s ease-out;
+  transition: opacity 0.4s;
+}
+.climb-hud b {
+  margin-inline-start: 6px;
+  color: var(--yellow);
+  font-size: 20px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.climb-hud span + span b {
+  color: var(--orange);
+}
+.climb-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(18px + var(--safe-b));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(26, 11, 46, 0.85);
+  border: 2px solid rgba(255, 123, 0, 0.5);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+  animation: fade 0.6s ease-out;
+  transition: opacity 0.6s;
+}
+.climb-hint.gone,
+.climb.ending .climb-hud,
+.climb.ending .climb-hint {
+  opacity: 0;
+}
+.climb-bubble {
+  position: fixed;
+  z-index: 16;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 84px;
+  padding: 6px 16px 8px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 3px solid rgba(255, 123, 0, 0.7);
+  box-shadow: 0 0 24px rgba(255, 123, 0, 0.35);
+  line-height: 1.1;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: bubble-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  transition: opacity 0.4s;
+}
+.climb-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: inherit;
+  border: inherit;
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(45deg);
+}
+.climb-bubble small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.climb-bubble b {
+  color: var(--yellow);
+  font-size: 30px;
+}
+.climb-bubble em {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+.climb-bubble.new em {
+  color: var(--green);
+}
+.climb-bubble.out {
+  opacity: 0;
+}
+@keyframes bubble-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.3);
+  }
+}
+
 .logo {
   width: 120px;
   opacity: 0.9;

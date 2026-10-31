@@ -11,6 +11,10 @@ const MAX_SPEED = 4500; // px/s
 export interface FlingOptions {
   /** Called when it hits a screen edge hard (for a sound or a buzz), with the impact speed in px/s. */
   onBounce?: (speed: number) => void;
+  /** Called when it is let go after a real pull or flick (not just a tap). */
+  onThrow?: () => void;
+  /** Called when it has sprung back and settled in its spot (not when `reset()` drops it there). */
+  onHome?: () => void;
 }
 
 export class Flingable {
@@ -121,6 +125,8 @@ export class Flingable {
     // A pointer that stopped before letting go shouldn't keep its old speed.
     if (performance.now() - this.lastT > 80) this.vx = this.vy = 0;
     const speed = Math.hypot(this.vx, this.vy);
+    const h = this.home();
+    if (Math.hypot(this.x - h.x, this.y - h.y) > h.w * 0.35 || speed > 700) this.opts.onThrow?.();
     if (speed > MAX_SPEED) {
       this.vx *= MAX_SPEED / speed;
       this.vy *= MAX_SPEED / speed;
@@ -136,8 +142,13 @@ export class Flingable {
       this.prev = now;
       if (this.pointer === null) this.physics(dt);
       this.draw();
-      if (this.floater && this.img.offsetWidth && !this.settled()) this.frame = requestAnimationFrame(step);
-      else this.reset();
+      const flying = !!this.floater && this.img.offsetWidth > 0;
+      if (flying && !this.settled()) {
+        this.frame = requestAnimationFrame(step);
+        return;
+      }
+      this.reset();
+      if (flying) this.opts.onHome?.();
     };
     this.frame = requestAnimationFrame(step);
   }

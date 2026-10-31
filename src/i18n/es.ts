@@ -251,6 +251,13 @@ export const es: Dict = {
     back: '¡La muñeca te vio moverte! ¡Vuelta al principio!',
     survived: '¡SOBREVIVISTE!',
   },
+  climb: {
+    best: 'RÉCORD',
+    newBest: '¡Nuevo récord!',
+    bestWas: 'Récord: {n}',
+    hintTouch: 'Mantén pulsado a la izquierda o a la derecha para moverte · toca para disparar',
+    hintKeys: '← → para moverte · Espacio para disparar',
+  },
   minders: {
     classic: { name: 'Minder Clásico', tagline: 'El original. Nunca parpadea.' },
     pumpkin: { name: 'Minder Calabaza', tagline: 'Valiente hasta la última semilla.' },
