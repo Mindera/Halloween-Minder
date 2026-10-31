@@ -106,7 +106,7 @@ export function ta(path: string): string[] {
 export function uiFont(): string {
   if (lang === 'ar') return "'Baloo Bhaijaan 2', 'Fredoka', sans-serif";
   if (lang === 'hi' || lang === 'vi') return "'Baloo 2', 'Fredoka', sans-serif";
-  return "'Fredoka', 'Baloo 2', sans-serif";
+  return "'Fredoka', sans-serif";
 }
 
 /** Font stack for spooky titles: Creepster where it has the letters, otherwise a heavy rounded font. */

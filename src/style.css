@@ -31,7 +31,8 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Fredoka', 'Baloo 2', 'Baloo Bhaijaan 2', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Baloo fonts are only used through the :lang() rules below, so Latin players never download them. */
+  font-family: 'Fredoka', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-user-select: none;
