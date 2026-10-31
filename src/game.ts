@@ -25,8 +25,8 @@ import {
   type ItemKind,
   type ThemeId,
 } from './config';
-import { buzz } from './feedback';
-import { t, ta } from './i18n';
+import { buzz, type Buzz } from './feedback';
+import { say, ta, type Msg } from './i18n';
 import type { Input, Pad } from './input';
 import { CRATE, DIRS, OPEN, bfsFrom, generateAnniversaryMaze, generateMaze, isWall, makeRng, opposite, type Maze } from './maze';
 import { settings, type GameEvent, type GhostRun } from './progress';
@@ -82,6 +82,7 @@ export interface Pet {
 }
 
 export interface PetShot {
+  id: number;
   x: number;
   y: number;
   vx: number;
@@ -97,6 +98,7 @@ export interface Door {
 }
 
 export interface Eye {
+  id: number;
   x: number;
   y: number;
   dir: number;
@@ -154,11 +156,25 @@ export interface Popup {
 
 export type Phase = 'intro' | 'play' | 'clear' | 'dying' | 'over' | 'won';
 
+/** A sound, popup, burst or map change that the other phone has to replay in a networked game (see `Game.onFx`). */
+export type Fx =
+  | { t: 'sfx'; s: Sfx }
+  | { t: 'buzz'; k: Buzz }
+  | { t: 'music' }
+  | { t: 'pop'; x: number; y: number; m: Msg; c: string; z: number }
+  | { t: 'burst'; x: number; y: number; c: string[]; n: number; z: number; k: ParticleKind }
+  | { t: 'confetti'; n: number }
+  | { t: 'rocket' }
+  | { t: 'debris'; x: number; y: number }
+  | { t: 'shock'; x: number; y: number }
+  | { t: 'pellet'; i: number }
+  | { t: 'crate'; i: number; hp: number };
+
 export interface GameCallbacks {
-  toast(text: string, color?: string): void;
+  toast(text: Msg, color?: string): void;
   levelIntro(level: number): void;
   levelClear(level: number, bonus: number): void;
-  gameOver(reason: string): void;
+  gameOver(reason: Msg): void;
   victory(): void;
   /** Progress events for stats, stickers and costume unlocks. */
   event(e: GameEvent): void;
@@ -195,6 +211,11 @@ const GHOST_STEP = 0.1;
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(arr: readonly T[]) => arr[Math.floor(Math.random() * arr.length)];
+/** On-screen text as an i18n key (see `Msg`), optionally followed by `s`. */
+const msg = (k: string, p?: Record<string, string | number>, s?: string): Msg => ({ k, p, s });
+/** A random entry of the i18n list `k`. */
+const anyOf = (k: string, s?: string): Msg => ({ k, i: Math.floor(Math.random() * ta(k).length), s });
+const suffix = (m: Msg, s: string): Msg => (typeof m === 'string' ? m + s : { ...m, s: (m.s ?? '') + s });
 
 export class Game {
   mode: GameMode = 'arcade';
@@ -221,7 +242,7 @@ export class Game {
   particles: Particle[] = [];
   popups: Popup[] = [];
   effects = new Map<ItemKind, number>();
-  deathReason = '';
+  deathReason: Msg = '';
   killer: EnemyKind | null = null;
   kills = 0;
   theme: ThemeId = 'graveyard';
@@ -246,6 +267,12 @@ export class Game {
   /** Best run of the day to race against (Daily Challenge, single player). */
   ghostRun: GhostRun | null = null;
   ghost: number[] | null = null;
+  /** Networked co-op, host phone: gets every effect so it can be replayed on the other phone. */
+  onFx?: (fx: Fx) => void;
+  /** Networked co-op, other phone: the host runs the game and this one only shows it (see `net/sync.ts`). */
+  remote = false;
+  /** Monsters still waiting to come out, as reported by the host (remote only). */
+  remoteQueued = 0;
 
   private diff!: Difficulty;
   private queue: EnemyKind[] = [];
@@ -289,7 +316,7 @@ export class Game {
   }
 
   get enemiesLeft() {
-    return this.queue.length + this.enemies.length;
+    return (this.remote ? this.remoteQueued : this.queue.length) + this.enemies.length;
   }
 
   has(kind: ItemKind) {
@@ -439,6 +466,8 @@ export class Game {
     this.shake = Math.max(0, this.shake - dt);
     for (const p of this.players) if (p.emote !== 'none') p.emoteTime += dt;
     this.updateParticles(dt);
+    this.ambience(dt);
+    if (this.remote) return;
     switch (this.phase) {
       case 'intro':
         this.phaseTime -= dt;
@@ -452,8 +481,6 @@ export class Game {
         break;
       case 'clear':
         this.phaseTime -= dt;
-        if (Math.random() < dt * 30) this.confetti(1);
-        if (this.party && Math.random() < dt * 4) this.launchRocket();
         if (this.phaseTime <= 0) this.nextLevel();
         break;
       case 'dying':
@@ -465,6 +492,30 @@ export class Game {
         break;
       default:
         break;
+    }
+  }
+
+  /** Sparkle each phone makes for itself (it isn't sent to the other phone in a networked game). */
+  private ambience(dt: number) {
+    if (this.phase === 'clear') {
+      if (Math.random() < dt * 30) this.playFx({ t: 'confetti', n: 1 });
+      if (this.party && Math.random() < dt * 4) this.playFx({ t: 'rocket' });
+      return;
+    }
+    if (this.phase !== 'play') return;
+    for (const p of this.alivePlayers()) {
+      if (this.has('spice') && Math.random() < dt * 25) {
+        this.particles.push({
+          kind: 'flame', x: p.x + rand(-0.2, 0.2), y: p.y + 0.3, vx: rand(-0.3, 0.3), vy: rand(0.2, 0.8),
+          life: 0.5, max: 0.5, color: pick(['#ff3d00', '#ff9100', '#ffea00']), size: rand(0.08, 0.16), rot: 0,
+        });
+      }
+      if (this.has('cricket') && Math.random() < dt * 4) {
+        this.particles.push({
+          kind: 'note', x: p.x + rand(-1, 1), y: p.y + rand(-1, 0), vx: rand(-0.5, 0.5), vy: -1,
+          life: 1, max: 1, color: '#b2ff59', size: 0.4, rot: 0,
+        });
+      }
     }
   }
 
@@ -525,7 +576,7 @@ export class Game {
     }
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
-      this.die(t('over.timeUp'), null);
+      this.die(msg('over.timeUp'), null);
       return;
     }
 
@@ -565,28 +616,13 @@ export class Game {
     this.updateItem(dt);
     this.updateUmbrellas(dt);
 
-    for (const p of alive) {
-      if (this.has('spice') && Math.random() < dt * 25) {
-        this.particles.push({
-          kind: 'flame', x: p.x + rand(-0.2, 0.2), y: p.y + 0.3, vx: rand(-0.3, 0.3), vy: rand(0.2, 0.8),
-          life: 0.5, max: 0.5, color: pick(['#ff3d00', '#ff9100', '#ffea00']), size: rand(0.08, 0.16), rot: 0,
-        });
-      }
-      if (this.has('cricket') && Math.random() < dt * 4) {
-        this.particles.push({
-          kind: 'note', x: p.x + rand(-1, 1), y: p.y + rand(-1, 0), vx: rand(-0.5, 0.5), vy: -1,
-          life: 1, max: 1, color: '#b2ff59', size: 0.4, rot: 0,
-        });
-      }
-    }
-
     if (this.pelletCount === 0 && this.enemiesLeft > 0 && !this.hintedPellets) {
       this.hintedPellets = true;
-      this.cb.toast(t('toast.allBits'), '#69f0ae');
+      this.cb.toast(msg('toast.allBits'), '#69f0ae');
     }
     if (this.enemiesLeft === 0 && this.pelletCount > 0 && !this.hintedEnemies) {
       this.hintedEnemies = true;
-      this.cb.toast(t('toast.monstersGone'), '#69f0ae');
+      this.cb.toast(msg('toast.monstersGone'), '#69f0ae');
     }
     if (this.pelletCount === 0 && this.enemiesLeft === 0) this.levelClear();
   }
@@ -614,7 +650,7 @@ export class Game {
       const d = DIRS[p.face];
       // An eyeball fired while standing on a portal shouldn't get warped by that same portal.
       this.eyes.push({
-        x: p.x + d.x * 0.3, y: p.y + d.y * 0.3, dir: p.face, spin: 0,
+        id: this.nextId++, x: p.x + d.x * 0.3, y: p.y + d.y * 0.3, dir: p.face, spin: 0,
         portal: Math.floor(p.y) * this.maze.w + Math.floor(p.x), owner: p.id,
       });
       p.cooldown = this.has('coffee') ? 0.11 : 0.3;
@@ -736,7 +772,7 @@ export class Game {
     if (Math.abs(p.x - tx - 0.5) > 0.35 || Math.abs(p.y - ty - 0.5) > 0.35) return;
     const i = ty * this.maze.w + tx;
     if (this.pellets[i] < 0) return;
-    this.pellets[i] = -1;
+    this.fx({ t: 'pellet', i });
     this.pelletCount--;
     this.addScore(10);
     this.sfx('pellet');
@@ -787,27 +823,22 @@ export class Game {
   private hitCrate(x: number, y: number, force = false) {
     const m = this.maze;
     const i = y * m.w + x;
-    this.crateHp[i] = force ? 0 : Math.max(0, this.crateHp[i] - 1);
-    if (this.crateHp[i] > 0) {
+    const hp = force ? 0 : Math.max(0, this.crateHp[i] - 1);
+    this.fx({ t: 'crate', i, hp });
+    if (hp > 0) {
       this.sfx('crack');
-      this.popup(x + 0.5, y + 0.2, t('pop.crack'), '#ffcc80', 0.3);
+      this.popup(x + 0.5, y + 0.2, msg('pop.crack'), '#ffcc80', 0.3);
       return;
     }
-    m.walls[i] = OPEN;
     this.distFrom = '';
     this.addScore(25);
     this.cb.event({ type: 'crate' });
     if (!force) {
       this.sfx('crunch');
-      buzz('light');
-      this.popup(x + 0.5, y + 0.2, pick(ta('pop.smash')), '#ffb74d', 0.38);
+      this.buzz('light');
+      this.popup(x + 0.5, y + 0.2, anyOf('pop.smash'), '#ffb74d', 0.38);
     }
-    for (let k = 0; k < 12; k++) {
-      this.particles.push({
-        kind: 'debris', x: x + 0.5 + rand(-0.3, 0.3), y: y + 0.5 + rand(-0.3, 0.3), vx: rand(-3, 3), vy: rand(-4, -1),
-        life: rand(0.5, 0.9), max: 0.9, color: pick(['#8d6e63', '#a1887f', '#6d4c41', '#d7ccc8']), size: rand(0.06, 0.12), rot: rand(0, 6),
-      });
-    }
+    this.fx({ t: 'debris', x: x + 0.5, y: y + 0.5 });
   }
 
   // ------------------------------------------------------------ pumpkin bombs
@@ -816,7 +847,7 @@ export class Game {
     const x = Math.floor(p.x) + 0.5;
     const y = Math.floor(p.y) + 0.5;
     if (this.bombStock <= 0) {
-      this.popup(p.x, p.y - 0.6, t('pop.noBombs'), '#ff8a80', 0.3);
+      this.popup(p.x, p.y - 0.6, msg('pop.noBombs'), '#ff8a80', 0.3);
       return;
     }
     if (this.bombs.length >= 3 || this.bombs.some((b) => b.x === x && b.y === y)) return;
@@ -841,10 +872,9 @@ export class Game {
     this.bombs.splice(i, 1);
     const m = this.maze;
     this.sfx('boom');
-    buzz('heavy');
-    this.shake = 0.45;
-    this.popup(b.x, b.y - 0.5, pick(ta('pop.kaboom')), '#ff9100', 0.55);
-    this.particles.push({ kind: 'shock', x: b.x, y: b.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: '#ffb74d', size: BOMB_RADIUS, rot: 0 });
+    this.buzz('heavy');
+    this.popup(b.x, b.y - 0.5, anyOf('pop.kaboom'), '#ff9100', 0.55);
+    this.fx({ t: 'shock', x: b.x, y: b.y });
     this.burst(b.x, b.y, ['#ff3d00', '#ff9100', '#ffea00', '#ff8c1a'], 26, 0.16, 'dot');
     const r = Math.ceil(BOMB_RADIUS);
     for (let y = Math.floor(b.y) - r; y <= Math.floor(b.y) + r; y++) {
@@ -861,19 +891,19 @@ export class Game {
         e.hp -= BOMB_BOSS_DAMAGE;
         e.flash = 0.3;
         if (e.hp > 0) {
-          this.popup(e.x, e.y - 0.9, t('pop.bossBomb'), '#ffeb3b', 0.35);
+          this.popup(e.x, e.y - 0.9, msg('pop.bossBomb'), '#ffeb3b', 0.35);
           continue;
         }
       }
       e.rising = 0;
-      this.killEnemy(e, ta('pop.kaboom')[0], 'bomb');
+      this.killEnemy(e, { k: 'pop.kaboom', i: 0 }, 'bomb');
       blastKills++;
     }
     if (blastKills) this.cb.event({ type: 'blast', kills: blastKills });
     // Chain reaction.
     for (const other of this.bombs) if (Math.hypot(other.x - b.x, other.y - b.y) <= BOMB_RADIUS) other.fuse = Math.min(other.fuse, 0.12);
     for (const p of this.alivePlayers()) {
-      if (Math.hypot(p.x - b.x, p.y - b.y) <= BOMB_RADIUS) this.popup(p.x, p.y - 0.8, t('pop.phew'), '#b2ff59', 0.3);
+      if (Math.hypot(p.x - b.x, p.y - b.y) <= BOMB_RADIUS) this.popup(p.x, p.y - 0.8, msg('pop.phew'), '#b2ff59', 0.3);
     }
   }
 
@@ -893,21 +923,21 @@ export class Game {
     if (r < 0.3) {
       const pts = [250, 500, 750][Math.floor(this.rnd() * 3)];
       this.addScore(pts);
-      this.popup(x, y - 0.5, `${t('pop.treat')} +${pts}`, '#ffd54f', 0.45);
+      this.popup(x, y - 0.5, msg('pop.treat', undefined, ` +${pts}`), '#ffd54f', 0.45);
       this.burst(x, y, ['#ffd54f', '#ff8a65', '#fff'], 16, 0.08, 'star');
       this.sfx('candy');
     } else if (r < 0.6) {
-      this.popup(x, y - 0.9, t('pop.treat'), '#ffd54f', 0.45);
+      this.popup(x, y - 0.9, msg('pop.treat'), '#ffd54f', 0.45);
       this.applyItem(this.nextItem(), x, y);
     } else if (r < 0.8) {
       this.scare = 1.1;
-      this.popup(x, y - 0.5, t('pop.trick'), '#ce93d8', 0.45);
+      this.popup(x, y - 0.5, msg('pop.trick'), '#ce93d8', 0.45);
       this.sfx('boo');
-      buzz('heavy');
+      this.buzz('heavy');
     } else {
       this.reverse = 3;
-      this.popup(x, y - 0.5, t('pop.trick'), '#ce93d8', 0.45);
-      this.cb.toast(t('toast.reverse'), '#ce93d8');
+      this.popup(x, y - 0.5, msg('pop.trick'), '#ce93d8', 0.45);
+      this.cb.toast(msg('toast.reverse'), '#ce93d8');
       this.sfx('glitch');
     }
   }
@@ -917,7 +947,7 @@ export class Game {
   private spawnPet(owner: number, x: number, y: number, kind: 'bat' | 'ghost') {
     if (this.pets.some((p) => p.owner === owner)) return;
     this.pets.push({ owner, kind, x, y, life: PET_LIFE, cooldown: 0.6 });
-    this.popup(x, y - 0.6, t('pop.pet'), '#f48fb1', 0.4);
+    this.popup(x, y - 0.6, msg('pop.pet'), '#f48fb1', 0.4);
     this.burst(x, y, ['#f48fb1', '#fff', '#ce93d8'], 12, 0.07, 'star');
     this.sfx('appear');
     this.cb.event({ type: 'pet' });
@@ -930,7 +960,7 @@ export class Game {
       if (pet.life <= 0 || !owner) {
         this.pets.splice(this.pets.indexOf(pet), 1);
         this.burst(pet.x, pet.y, ['#f48fb1', '#fff'], 10, 0.06, 'star');
-        this.popup(pet.x, pet.y - 0.4, t('pop.petBye'), '#f48fb1', 0.3);
+        this.popup(pet.x, pet.y - 0.4, msg('pop.petBye'), '#f48fb1', 0.3);
         continue;
       }
       // Hover just behind the minder.
@@ -954,7 +984,7 @@ export class Game {
       }
       if (!target) continue;
       const len = best || 1;
-      this.petShots.push({ x: pet.x, y: pet.y, vx: ((target.x - pet.x) / len) * 9, vy: ((target.y - pet.y) / len) * 9, life: 0.8, owner: pet.owner });
+      this.petShots.push({ id: this.nextId++, x: pet.x, y: pet.y, vx: ((target.x - pet.x) / len) * 9, vy: ((target.y - pet.y) / len) * 9, life: 0.8, owner: pet.owner });
       pet.cooldown = 0.75;
     }
     // Pet shots are a bit magic: they fly over walls.
@@ -982,24 +1012,24 @@ export class Game {
     e.flash = 0.15;
     if (e.hp > 0) {
       this.sfx('hit');
-      const word = e.kind === 'cousin' ? pick(ta('pop.bossHit')) : t('pop.ouch');
+      const word = e.kind === 'cousin' ? anyOf('pop.bossHit') : msg('pop.ouch');
       this.popup(e.x, e.y - (e.kind === 'cousin' ? 0.9 : 0.4), word, '#ffeb3b', 0.35);
       return;
     }
-    this.killEnemy(e, pick(ta('killWords')), by, owner);
+    this.killEnemy(e, anyOf('killWords'), by, owner);
   }
 
-  private killEnemy(e: Enemy, word: string, by: 'eye' | 'bomb' | 'pet' | 'other' = 'other', owner = -1) {
+  private killEnemy(e: Enemy, word: Msg, by: 'eye' | 'bomb' | 'pet' | 'other' = 'other', owner = -1) {
     const idx = this.enemies.indexOf(e);
     if (idx < 0) return;
     this.enemies.splice(idx, 1);
     this.kills++;
     const pts = ENEMIES[e.kind].points;
     this.addScore(pts);
-    this.popup(e.x, e.y - 0.3, `${word} +${pts * (this.party ? 2 : 1)}`, '#fff', 0.42);
+    this.popup(e.x, e.y - 0.3, suffix(word, ` +${pts * (this.party ? 2 : 1)}`), '#fff', 0.42);
     this.burst(e.x, e.y, SPLAT[e.kind], 16, 0.1);
     this.sfx('kill');
-    buzz('light');
+    this.buzz('light');
     this.cb.event({ type: 'kill', kind: e.kind, by });
     if (e.kind === 'cousin') this.cb.event({ type: 'boss', onlyBombs: by === 'bomb' && e.eyeHits === 0 });
     // Sometimes a defeated monster turns into a tiny friendly pet.
@@ -1011,16 +1041,16 @@ export class Game {
       this.confetti(70);
       this.burst(e.x, e.y, ['#4fc3f7', '#f1c27d', '#ffd400'], 30, 0.14, 'star');
       if (this.enemiesLeft === 0) this.hintedEnemies = true;
-      this.cb.toast(t(this.enemiesLeft === 0 && this.pelletCount > 0 ? 'toast.bossOutBits' : 'toast.bossOut'), '#ffd400');
-      buzz('heavy');
+      this.cb.toast(msg(this.enemiesLeft === 0 && this.pelletCount > 0 ? 'toast.bossOutBits' : 'toast.bossOut'), '#ffd400');
+      this.buzz('heavy');
     }
     if (e.kind === 'pumpkin' && this.level >= 5) {
       for (const s of [-1, 1]) this.addEnemy('minipumpkin', e.x, e.y, 0, s > 0 ? e.dir : opposite(e.dir));
-      this.popup(e.x, e.y + 0.2, t('pop.split'), '#ff9800', 0.32);
+      this.popup(e.x, e.y + 0.2, msg('pop.split'), '#ff9800', 0.32);
     }
     if (e.kind === 'vampire') {
       for (let i = 0; i < 2; i++) this.addEnemy('bat', e.x, e.y, 0, i ? e.dir : opposite(e.dir));
-      this.popup(e.x, e.y + 0.2, t('pop.bats'), '#ce93d8', 0.32);
+      this.popup(e.x, e.y + 0.2, msg('pop.bats'), '#ce93d8', 0.32);
     }
   }
 
@@ -1032,9 +1062,9 @@ export class Game {
     const choice = options.length ? pick(options).s : m.spawns.reduce((a, b) => (this.distMap[b.y * m.w + b.x] > this.distMap[a.y * m.w + a.x] ? b : a));
     this.addEnemy(kind, choice.x + 0.5, choice.y + 0.5, 0.9, -1);
     if (kind === 'cousin') {
-      this.cb.toast(t('toast.bossIn'), '#ff5252');
+      this.cb.toast(msg('toast.bossIn'), '#ff5252');
       this.sfx('boss');
-      buzz('heavy');
+      this.buzz('heavy');
     } else this.sfx('spawn');
   }
 
@@ -1079,12 +1109,12 @@ export class Game {
       const near = this.nearestPlayer(e.x, e.y);
       if (cricket && e.mad <= 0 && e.kind !== 'cousin' && Math.hypot(e.x - near.x, e.y - near.y) < 3.5) {
         e.mad = 0.9;
-        this.popup(e.x, e.y - 0.4, pick(ta('pop.mad')), '#b2ff59', 0.3);
+        this.popup(e.x, e.y - 0.4, anyOf('pop.mad'), '#b2ff59', 0.3);
       }
       if (e.mad > 0) {
         e.mad -= dt;
         e.wobble += dt * 40;
-        if (e.mad <= 0) this.killEnemy(e, t('pop.bonkers'));
+        if (e.mad <= 0) this.killEnemy(e, msg('pop.bonkers'));
         continue;
       }
       if (e.stun > 0) {
@@ -1104,17 +1134,17 @@ export class Game {
         if (frozen && e.kind === 'cousin') {
           // Even a Blue Screen can't delete Palos' cousin: you have to shoot him.
         } else if (frozen) {
-          this.killEnemy(e, t('pop.ctrlAltDel'));
+          this.killEnemy(e, msg('pop.ctrlAltDel'));
         } else if (e.stun > 0) {
           // Dizzy monsters are harmless.
         } else if (this.has('pig')) {
           e.stun = 2.5;
           e.dir = opposite(e.dir);
-          this.popup(e.x, e.y - 0.4, t('pop.boing'), '#f48fb1', 0.4);
+          this.popup(e.x, e.y - 0.4, msg('pop.boing'), '#f48fb1', 0.4);
           this.sfx('boing');
           this.addScore(50);
         } else if (p.invuln <= 0) {
-          this.knockOut(p, t(`monsters.${e.kind}.death`), e.kind);
+          this.knockOut(p, msg(`monsters.${e.kind}.death`), e.kind);
           if (this.phase !== 'play') return;
         }
         break;
@@ -1123,15 +1153,15 @@ export class Game {
   }
 
   /** In co-op a caught minder sits out the rest of the level; the game ends when nobody is left. */
-  private knockOut(p: Player, reason: string, killer: EnemyKind | null) {
+  private knockOut(p: Player, reason: Msg, killer: EnemyKind | null) {
     if (this.alivePlayers().length > 1) {
       p.alive = false;
       p.dir = -1;
       this.emote(p, 'cry');
       this.sfx('cry');
-      buzz('error');
-      this.popup(p.x, p.y - 0.7, t('pop.out', { n: p.id + 1 }), '#ff8a80', 0.4);
-      this.cb.toast(t('toast.playerOut', { n: p.id + 1, other: 2 - p.id }), '#ff8a80');
+      this.buzz('error');
+      this.popup(p.x, p.y - 0.7, msg('pop.out', { n: p.id + 1 }), '#ff8a80', 0.4);
+      this.cb.toast(msg('toast.playerOut', { n: p.id + 1, other: 2 - p.id }), '#ff8a80');
       this.distFrom = '';
       return;
     }
@@ -1304,37 +1334,28 @@ export class Game {
       if (opener) {
         u.open = rand(6, 9);
         this.sfx('umbrella');
-        this.popup(u.x, u.y - 0.9, pick(ta('pop.umbrella')), '#ce93d8', 0.3);
+        this.popup(u.x, u.y - 0.9, anyOf('pop.umbrella'), '#ce93d8', 0.3);
       }
     }
   }
 
   private showHints() {
     const m = this.maze;
-    const hint = (key: string, text: string) => {
+    const hint = (key: string, text: Msg) => {
       if (this.hints.has(key)) return false;
       this.hints.add(key);
       this.cb.toast(text, '#80deea');
       return true;
     };
-    if (m.walls.some((v) => v === CRATE) && hint('crate', t('toast.hintCrate'))) return;
-    if (m.portals.length && hint('portal', t('toast.hintPortal'))) return;
-    if (m.umbrellas.length) hint('umbrella', t('toast.hintUmbrella'));
-  }
-
-  private launchRocket() {
-    const m = this.maze;
-    this.particles.push({
-      kind: 'rocket', x: rand(1, m.w - 1), y: m.h, vx: rand(-0.6, 0.6), vy: rand(-11, -8),
-      life: rand(0.8, 1.3), max: 1.3, color: pick(CONFETTI), size: 0.1, rot: 0,
-    });
-    this.sfx('firework');
+    if (m.walls.some((v) => v === CRATE) && hint('crate', msg('toast.hintCrate'))) return;
+    if (m.portals.length && hint('portal', msg('toast.hintPortal'))) return;
+    if (m.umbrellas.length) hint('umbrella', msg('toast.hintUmbrella'));
   }
 
   private applyItem(kind: ItemKind, x: number, y: number) {
-    this.cb.toast(t(`items.${kind}.toast`), kind === 'beer' ? '#ffcc80' : '#fff59d');
+    this.cb.toast(msg(`items.${kind}.toast`), kind === 'beer' ? '#ffcc80' : '#fff59d');
     this.burst(x, y, ['#fff59d', '#ffffff', '#ffd54f'], 14, 0.08, 'star');
-    buzz('medium');
+    this.buzz('medium');
     const sounds: Record<ItemKind, Sfx> = {
       cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp', computer: 'bsod', coffee: 'slurp',
       roach: 'glitch', rabbit: 'matrix', bomb: 'fuse', candy: 'candy', cake: 'candy',
@@ -1348,20 +1369,20 @@ export class Game {
     }
     if (kind === 'cake') {
       this.addScore(1200);
-      this.popup(x, y - 0.3, t('pop.cake'), '#ffd400', 0.5);
+      this.popup(x, y - 0.3, msg('pop.cake'), '#ffd400', 0.5);
       this.confetti(80);
       return;
     }
     if (kind === 'bomb') {
       this.bombStock = Math.min(MAX_BOMBS, this.bombStock + 2);
-      this.popup(x, y - 0.3, t('pop.plusBombs'), '#ff9100', 0.45);
+      this.popup(x, y - 0.3, msg('pop.plusBombs'), '#ff9100', 0.45);
       return;
     }
     this.effects.set(kind, EFFECT_TIME);
     if (kind === 'computer') this.popup(x, y - 0.4, ':(', '#82b1ff', 0.6);
     if (kind === 'roach') {
       this.reshuffleControls();
-      this.popup(x, y - 0.4, t('pop.bugFound'), '#69f0ae', 0.45);
+      this.popup(x, y - 0.4, msg('pop.bugFound'), '#69f0ae', 0.45);
     }
   }
 
@@ -1374,16 +1395,16 @@ export class Game {
     p.emoteTime = 0;
   }
 
-  private die(reason: string, killer: EnemyKind | null) {
+  private die(reason: Msg, killer: EnemyKind | null) {
     this.phase = 'dying';
     this.phaseTime = 2.6;
     this.deathReason = reason;
     this.killer = killer;
     this.effects.clear();
     for (const p of this.players) this.emote(p, 'cry');
-    audio.stopMusic();
+    this.fx({ t: 'music' });
     this.sfx('death');
-    buzz('error');
+    this.buzz('error');
   }
 
   private levelClear() {
@@ -1398,41 +1419,100 @@ export class Game {
     for (const p of this.alivePlayers()) this.emote(p, 'cheer');
     this.cb.event({ type: 'clear', level: this.level, timeLeft: this.timeLeft, party: this.party, coop: this.coop });
     this.sfx('clear');
-    buzz('medium');
+    this.buzz('medium');
     this.confetti(60);
-    if (this.party) for (let i = 0; i < 4; i++) this.launchRocket();
+    if (this.party) for (let i = 0; i < 4; i++) this.fx({ t: 'rocket' });
     this.cb.levelClear(this.level, bonus);
   }
 
   // ------------------------------------------------------------ effects
 
-  private sfx(s: Sfx) {
-    audio.play(s);
+  /** Plays an effect here and, in a networked game, hands it to the other phone too. */
+  private fx(f: Fx) {
+    this.onFx?.(f);
+    this.playFx(f);
   }
 
-  popup(x: number, y: number, text: string, color: string, size: number) {
-    this.popups.push({ x, y, text, life: 1.1, color, size });
-  }
-
-  burst(x: number, y: number, colors: string[], n: number, size: number, kind: ParticleKind = 'dot') {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const v = rand(1, 4);
-      this.particles.push({
-        kind, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
-        life: rand(0.4, 0.8), max: 0.8, color: pick(colors), size: size * rand(0.6, 1.4), rot: a,
-      });
+  /** Plays an effect on this phone only (also used to replay the host's effects on the other phone). */
+  playFx(f: Fx) {
+    switch (f.t) {
+      case 'sfx':
+        audio.play(f.s);
+        break;
+      case 'buzz':
+        buzz(f.k);
+        break;
+      case 'music':
+        audio.stopMusic();
+        break;
+      case 'pop':
+        this.popups.push({ x: f.x, y: f.y, text: say(f.m), life: 1.1, color: f.c, size: f.z });
+        break;
+      case 'burst':
+        for (let i = 0; i < f.n; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const v = rand(1, 4);
+          this.particles.push({
+            kind: f.k, x: f.x, y: f.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+            life: rand(0.4, 0.8), max: 0.8, color: pick(f.c), size: f.z * rand(0.6, 1.4), rot: a,
+          });
+        }
+        break;
+      case 'confetti':
+        for (let i = 0; i < f.n; i++) {
+          this.particles.push({
+            kind: 'confetti', x: rand(0, this.maze.w), y: rand(-2, 0), vx: rand(-1, 1), vy: rand(2, 5),
+            life: rand(2, 3.5), max: 3.5, color: pick(CONFETTI), size: rand(0.12, 0.22), rot: rand(0, 6),
+          });
+        }
+        break;
+      case 'rocket':
+        this.particles.push({
+          kind: 'rocket', x: rand(1, this.maze.w - 1), y: this.maze.h, vx: rand(-0.6, 0.6), vy: rand(-11, -8),
+          life: rand(0.8, 1.3), max: 1.3, color: pick(CONFETTI), size: 0.1, rot: 0,
+        });
+        audio.play('firework');
+        break;
+      case 'debris':
+        for (let k = 0; k < 12; k++) {
+          this.particles.push({
+            kind: 'debris', x: f.x + rand(-0.3, 0.3), y: f.y + rand(-0.3, 0.3), vx: rand(-3, 3), vy: rand(-4, -1),
+            life: rand(0.5, 0.9), max: 0.9, color: pick(['#8d6e63', '#a1887f', '#6d4c41', '#d7ccc8']), size: rand(0.06, 0.12), rot: rand(0, 6),
+          });
+        }
+        break;
+      case 'shock':
+        this.shake = 0.45;
+        this.particles.push({ kind: 'shock', x: f.x, y: f.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: '#ffb74d', size: BOMB_RADIUS, rot: 0 });
+        break;
+      case 'pellet':
+        this.pellets[f.i] = -1;
+        break;
+      case 'crate':
+        this.crateHp[f.i] = f.hp;
+        if (f.hp === 0) this.maze.walls[f.i] = OPEN;
+        break;
     }
+  }
+
+  private sfx(s: Sfx) {
+    this.fx({ t: 'sfx', s });
+  }
+
+  private buzz(k: Buzz) {
+    this.fx({ t: 'buzz', k });
+  }
+
+  popup(x: number, y: number, m: Msg, c: string, z: number) {
+    this.fx({ t: 'pop', x, y, m, c, z });
+  }
+
+  burst(x: number, y: number, c: string[], n: number, z: number, k: ParticleKind = 'dot') {
+    this.fx({ t: 'burst', x, y, c, n, z, k });
   }
 
   confetti(n: number) {
-    const m = this.maze;
-    for (let i = 0; i < n; i++) {
-      this.particles.push({
-        kind: 'confetti', x: rand(0, m.w), y: rand(-2, 0), vx: rand(-1, 1), vy: rand(2, 5),
-        life: rand(2, 3.5), max: 3.5, color: pick(CONFETTI), size: rand(0.12, 0.22), rot: rand(0, 6),
-      });
-    }
+    this.fx({ t: 'confetti', n });
   }
 
   private updateParticles(dt: number) {

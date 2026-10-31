@@ -606,6 +606,23 @@ h3 {
   width: 120px;
   opacity: 0.9;
 }
+.logo-link {
+  display: inline-block;
+  line-height: 0;
+  border-radius: 12px;
+  transition: transform 0.15s;
+}
+.logo-link:hover .logo,
+.logo-link:focus-visible .logo {
+  opacity: 1;
+}
+.logo-link:hover,
+.logo-link:focus-visible {
+  transform: scale(1.06) rotate(-2deg);
+}
+.logo-link:active {
+  transform: scale(0.96);
+}
 
 .row {
   display: flex;

@@ -3,8 +3,10 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
 const native = Capacitor.isNativePlatform();
 
+export type Buzz = 'light' | 'medium' | 'heavy' | 'error';
+
 /** Light buzz on hits, heavy on death. Native uses the Taptic engine; Android web falls back to vibrate(). */
-export function buzz(kind: 'light' | 'medium' | 'heavy' | 'error') {
+export function buzz(kind: Buzz) {
   if (native) {
     if (kind === 'error') void Haptics.notification({ type: NotificationType.Error }).catch(() => {});
     else

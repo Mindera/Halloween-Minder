@@ -102,6 +102,24 @@ export function ta(path: string): string[] {
   return Array.isArray(e) ? (e as string[]) : [];
 }
 
+/**
+ * Text the game shows (popups, toasts, game-over reasons), kept as an i18n key so the other phone in a
+ * networked game can show it in its own language: `t(k, p)`, or item `i` of the list `ta(k)`, then suffix `s`.
+ * A plain string is shown as-is.
+ */
+export type Msg = string | { k: string; p?: Record<string, string | number>; i?: number; s?: string };
+
+export function say(m: Msg): string {
+  if (typeof m === 'string') return m;
+  let base: string;
+  if (m.i === undefined) base = t(m.k, m.p);
+  else {
+    const list = ta(m.k);
+    base = list.length ? list[m.i % list.length] : m.k;
+  }
+  return base + (m.s ?? '');
+}
+
 /** Font stack for UI text drawn on the canvas. */
 export function uiFont(): string {
   if (lang === 'ar') return "'Baloo Bhaijaan 2', 'Fredoka', sans-serif";

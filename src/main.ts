@@ -13,7 +13,7 @@ import {
   type MinderDef,
 } from './config';
 import { Game } from './game';
-import { LANGS, detectLang, getLang, setLang, t, ta, type Lang } from './i18n';
+import { LANGS, detectLang, getLang, say, setLang, t, ta, type Lang } from './i18n';
 import { Input } from './input';
 import { pickDims } from './maze';
 import {
@@ -88,11 +88,11 @@ class App {
     this.game = new Game(
       this.input,
       {
-        toast: (t, c) => this.toast(t, c),
+        toast: (m, c) => this.toast(say(m), c),
         levelIntro: (l) => this.onLevelIntro(l),
         event: (e) => this.onEvent(e),
         levelClear: (l, b) => this.onLevelClear(l, b),
-        gameOver: (r) => this.onGameOver(r, false),
+        gameOver: (r) => this.onGameOver(say(r), false),
         victory: () => this.onGameOver(t(this.game.daily ? 'over.wonDaily' : 'over.wonArcade'), true),
       },
       () => pickDims(this.field.w, this.field.h),
