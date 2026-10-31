@@ -119,6 +119,10 @@ export interface Eye {
   portal: number;
   /** Which player fired it (for the iris colour). */
   owner: number;
+  /** A fireball (chocolate): burns through every monster in its way and smashes crates in one hit. */
+  fire: boolean;
+  /** Monsters this fireball already burned, so each one is only hit once. */
+  burned?: number[];
 }
 
 export interface Bomb {
@@ -646,7 +650,22 @@ export class Game {
         life: 1.2, max: 1.2, color: '#ff80ab', size: 0.4, rot: 0,
       });
     }
+    for (const e of this.eyes) {
+      if (!e.fire || Math.random() > dt * 40) continue;
+      this.particles.push({
+        kind: 'flame', x: e.x + rand(-0.12, 0.12), y: e.y + rand(-0.12, 0.12), vx: rand(-0.4, 0.4), vy: rand(-1, -0.3),
+        life: 0.35, max: 0.35, color: pick(['#ff3d00', '#ff9100', '#ffea00']), size: rand(0.08, 0.14), rot: 0,
+      });
+    }
     for (const p of this.alivePlayers()) {
+      if (this.has('choco') && Math.random() < dt * 7) {
+        // Little puffs of fire and smoke from the minder's mouth.
+        const d = DIRS[p.face];
+        this.particles.push({
+          kind: 'flame', x: p.x + d.x * 0.35, y: p.y + d.y * 0.35 - 0.05, vx: d.x * 0.8 + rand(-0.3, 0.3), vy: d.y * 0.8 - rand(0.3, 0.8),
+          life: 0.5, max: 0.5, color: pick(['#ff9100', '#ffea00', '#9e9e9e']), size: rand(0.06, 0.11), rot: 0,
+        });
+      }
       if (this.has('spice') && Math.random() < dt * 25) {
         this.particles.push({
           kind: 'flame', x: p.x + rand(-0.2, 0.2), y: p.y + 0.3, vx: rand(-0.3, 0.3), vy: rand(0.2, 0.8),
@@ -800,14 +819,18 @@ export class Game {
     const maxEyes = (this.has('coffee') ? 7 : 3) * this.players.length;
     if (fire && p.cooldown <= 0 && this.eyes.length < maxEyes) {
       const d = DIRS[p.face];
+      const flame = this.has('choco');
       // An eyeball fired while standing on a portal shouldn't get warped by that same portal.
       this.eyes.push({
         id: this.nextId++, x: p.x + d.x * 0.3, y: p.y + d.y * 0.3, dir: p.face, spin: 0,
-        portal: Math.floor(p.y) * this.maze.w + Math.floor(p.x), owner: p.id,
+        portal: Math.floor(p.y) * this.maze.w + Math.floor(p.x), owner: p.id, fire: flame,
       });
       p.cooldown = this.has('coffee') ? 0.11 : 0.3;
       p.recoil = 1;
-      this.sfx('shoot');
+      if (flame) {
+        this.burst(p.x + d.x * 0.4, p.y + d.y * 0.4 - 0.1, ['#ff3d00', '#ff9100', '#ffea00'], 8, 0.08, 'flame');
+        this.sfx('flame');
+      } else this.sfx('shoot');
     }
     if (pad.consumeBomb()) this.dropBomb(p);
   }
@@ -955,16 +978,21 @@ export class Game {
         const ax = Math.floor(e.x + d.x * 0.15);
         const ay = Math.floor(e.y + d.y * 0.15);
         if (isWall(m, ax, ay)) {
-          if (m.walls[ay * m.w + ax] === CRATE) this.hitCrate(ax, ay);
-          this.burst(e.x, e.y, ['#ffffff', '#ffcdd2'], 5, 0.06);
+          if (m.walls[ay * m.w + ax] === CRATE) {
+            // Fire smashes a crate in one go.
+            if (e.fire) this.crateHp[ay * m.w + ax] = 1;
+            this.hitCrate(ax, ay);
+          }
+          this.burst(e.x, e.y, e.fire ? ['#ff3d00', '#ff9100', '#ffea00'] : ['#ffffff', '#ffcdd2'], e.fire ? 10 : 5, 0.06, e.fire ? 'flame' : 'dot');
           return false;
         }
-        for (const en of this.enemies) {
-          if (en.rising > 0) continue;
+        for (const en of [...this.enemies]) {
+          if (en.rising > 0 || e.burned?.includes(en.id)) continue;
           const r = fatHit * (en.kind === 'minipumpkin' ? 0.8 : en.kind === 'cousin' ? 1.5 : 1);
           if (Math.abs(en.x - e.x) < r && Math.abs(en.y - e.y) < r) {
             this.hitEnemy(en, 'eye', e.owner);
-            return false;
+            if (!e.fire) return false;
+            (e.burned ??= []).push(en.id);
           }
         }
       }
@@ -1596,7 +1624,7 @@ export class Game {
     this.burst(x, y, ['#fff59d', '#ffffff', '#ffd54f'], 14, 0.08, 'star');
     this.buzz('medium');
     const sounds: Record<ItemKind, Sfx> = {
-      cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp', computer: 'bsod', coffee: 'slurp',
+      cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp', computer: 'bsod', coffee: 'slurp', choco: 'nom',
       roach: 'glitch', rabbit: 'matrix', bomb: 'fuse', candy: 'candy', cake: 'candy',
     };
     this.sfx(sounds[kind]);

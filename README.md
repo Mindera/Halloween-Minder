@@ -74,6 +74,7 @@ Items come out of a shuffled bag, so you see every item before any repeats.
 | 🍺 Root Beer | Wobbly, blurry screen. Hic! |
 | 💻 Computer | Blue Screen of Death: monsters freeze, so touch them to delete them |
 | ☕ Coffee | Rapid-fire eyeballs |
+| 🍫 Chocolate | The Minder spits fireballs: they burn through every monster in a line and smash crates in one hit |
 | 🪳 Cockroach | "Ups, we found a bug!" The screen glitches and the controls get scrambled (they reshuffle every few seconds) |
 | 🐇 White Rabbit | It hops away from you. Catch it and the maze turns into the Matrix: green code, digital rain |
 | 🎃 Pumpkin Bombs | +2 bombs |

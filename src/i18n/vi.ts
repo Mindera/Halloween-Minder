@@ -327,6 +327,7 @@ export const vi: Dict = {
     beer: { name: 'Nước ngọt có ga', toast: 'NƯỚC NGỌT CÓ GA! Ối... mọi thứ chao đảo. Hức!', help: 'Nước ngọt có ga! Màn hình chao đảo và mờ đi. Hức!' },
     computer: { name: 'Máy tính', toast: 'MÁY TÍNH! Quái vật dính màn hình xanh chết chóc!', help: 'Màn hình xanh chết chóc! Quái vật đứng hình — chạm vào để xóa.' },
     coffee: { name: 'Cà phê', toast: 'CÀ PHÊ! Bắn nhãn cầu liên thanh!', help: 'Bắn nhãn cầu liên thanh!' },
+    choco: { name: 'Sô-cô-la', toast: 'SÔ-CÔ-LA! Nóng quá... bạn phun LỬA!', help: 'Bạn phun cầu lửa xuyên qua quái vật và phá vỡ thùng gỗ.' },
     roach: { name: 'Con gián', toast: 'Úi, có bug rồi! Nút điều khiển bị loạn!', help: 'Úi, có bug rồi! Trò chơi bị lỗi và nút điều khiển bị đảo lộn.' },
     rabbit: { name: 'Thỏ Trắng', toast: 'Bạn đã bắt được Thỏ Trắng! Chào mừng đến với Matrix...', help: 'Nó chạy trốn đó! Bắt được nó để vào Matrix.' },
     bomb: { name: 'Bom bí ngô', toast: 'BOM BÍ NGÔ! +2 bom. Thả bom bằng nút BOM!', help: '+2 bom bí ngô. Thả bằng nút BOM để phá thùng gỗ và hạ quái vật.' },

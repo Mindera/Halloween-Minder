@@ -336,6 +336,7 @@ export const en = {
     beer: { name: 'Root Beer', toast: 'ROOT BEER! Whoa... everything is wobbly. Hic!', help: 'Root beer! The screen gets wobbly and blurry. Hic!' },
     computer: { name: 'Computer', toast: 'COMPUTER! Monsters got the Blue Screen of Death!', help: 'Blue Screen of Death! Monsters freeze — touch them to delete.' },
     coffee: { name: 'Coffee', toast: 'COFFEE! Rapid-fire eyeballs!', help: 'Rapid-fire eyeballs!' },
+    choco: { name: 'Chocolate', toast: 'CHOCOLATE! So hot... you spit FIRE!', help: 'You spit fireballs that burn through monsters and smash crates.' },
     roach: { name: 'Cockroach', toast: 'Ups, we found a bug! The controls are glitching!', help: 'Ups, we found a bug! The game glitches and the controls get mixed up.' },
     rabbit: { name: 'White Rabbit', toast: 'You caught the White Rabbit! Welcome to the Matrix...', help: 'It runs away! Catch it to enter the Matrix.' },
     bomb: { name: 'Pumpkin Bombs', toast: 'PUMPKIN BOMBS! +2 bombs. Drop one with the BOMB button!', help: '+2 pumpkin bombs. Drop them with BOMB to blow up crates and monsters.' },

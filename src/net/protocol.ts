@@ -4,7 +4,7 @@ import type { Msg } from '../i18n';
 import type { GameEvent } from '../progress';
 
 /** Bumped whenever the messages change, so two different builds refuse to play together. */
-export const VERSION = 2;
+export const VERSION = 3;
 
 /** Reliable, ordered messages (JSON on the 'ctl' channel). */
 export type Ctl =
@@ -147,7 +147,7 @@ export interface Snapshot {
   players: Pick<Player, 'id' | 'x' | 'y' | 'dir' | 'face' | 'alive' | 'invuln' | 'recoil' | 'emote'>[];
   enemies: Pick<Enemy, 'id' | 'kind' | 'x' | 'y' | 'hp' | 'rising' | 'stun' | 'mad' | 'flash' | 'face' | 'dir'>[];
   warnings: SpawnWarning[];
-  eyes: Pick<Eye, 'id' | 'x' | 'y' | 'dir' | 'owner'>[];
+  eyes: Pick<Eye, 'id' | 'x' | 'y' | 'dir' | 'owner' | 'fire'>[];
   bombs: Bomb[];
   item: Pick<Item, 'kind' | 'x' | 'y' | 'life' | 'max'> | null;
   pets: Pick<Pet, 'owner' | 'kind' | 'x' | 'y' | 'life'>[];
@@ -217,6 +217,7 @@ export function encodeSnapshot(g: Game, epoch: number, seq: number): Uint8Array<
     w.pos(e.y);
     w.u8(e.dir);
     w.u8(e.owner);
+    w.u8(e.fire ? 1 : 0);
   });
   w.list(g.bombs, (b) => {
     w.pos(b.x);
@@ -297,7 +298,7 @@ export function decodeSnapshot(buf: ArrayBuffer): Snapshot {
       dir: r.i8(),
     })),
     warnings: r.list(() => ({ x: r.u8(), y: r.u8(), kind: ENEMY_KINDS[r.u8()], left: r.u8() / 50 })),
-    eyes: r.list(() => ({ id: r.u16(), x: r.pos(), y: r.pos(), dir: r.u8(), owner: r.u8() })),
+    eyes: r.list(() => ({ id: r.u16(), x: r.pos(), y: r.pos(), dir: r.u8(), owner: r.u8(), fire: r.u8() === 1 })),
     bombs: r.list(() => ({ x: r.pos(), y: r.pos(), fuse: r.u8() / 100 })),
     item: r.u8() ? { kind: ITEM_KINDS[r.u8()], x: r.pos(), y: r.pos(), life: r.u8() / 10, max: r.u8() / 10 } : null,
     pets: r.list(() => ({ owner: r.u8(), kind: r.u8() ? ('ghost' as const) : ('bat' as const), x: r.pos(), y: r.pos(), life: r.u8() / 10 })),

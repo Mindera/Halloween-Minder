@@ -91,7 +91,7 @@ export const stats: Stats = read<Stats>(STATS_KEY, {
 });
 const earned = new Set<string>(read<{ list: string[] }>(STICKERS_KEY, { list: [] }).list);
 
-const ALL_ITEMS: ItemKind[] = ['cricket', 'spice', 'pig', 'eclair', 'beer', 'computer', 'coffee', 'roach', 'rabbit', 'bomb', 'candy'];
+const ALL_ITEMS: ItemKind[] = ['cricket', 'spice', 'pig', 'eclair', 'beer', 'computer', 'coffee', 'choco', 'roach', 'rabbit', 'bomb', 'candy'];
 
 export interface Sticker {
   id: string;

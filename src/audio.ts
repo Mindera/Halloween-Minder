@@ -3,6 +3,7 @@ import { settings } from './progress';
 /** Every sound is synthesised with WebAudio, so there are no audio assets to ship. */
 export type Sfx =
   | 'shoot'
+  | 'flame'
   | 'pellet'
   | 'hit'
   | 'kill'
@@ -155,6 +156,11 @@ export class SoundBoard {
       case 'shoot':
         this.tone(320, 0.12, 'sine', 0.25, 900);
         this.tone(900, 0.06, 'triangle', 0.08, 1400, 0.05);
+        break;
+      case 'flame':
+        // Whoosh!
+        this.noise(0.3, 0.32, 1100, 0, 0.6);
+        this.tone(190, 0.25, 'sawtooth', 0.08, 70);
         break;
       case 'pellet':
         this.pelletToggle = !this.pelletToggle;

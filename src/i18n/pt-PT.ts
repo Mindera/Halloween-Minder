@@ -328,6 +328,7 @@ export const ptPT: Dict = {
     beer: { name: 'Gasosa', toast: 'GASOSA! Uau... está tudo a abanar. Hic!', help: 'Gasosa! O ecrã fica a abanar e desfocado. Hic!' },
     computer: { name: 'Computador', toast: 'COMPUTADOR! Os monstros deram Ecrã Azul da Morte!', help: 'Ecrã Azul da Morte! Os monstros bloqueiam — toca-lhes para os apagares.' },
     coffee: { name: 'Café', toast: 'CAFÉ! Olhos em rajada!', help: 'Disparas olhos em rajada!' },
+    choco: { name: 'Chocolate', toast: 'CHOCOLATE! Tão quente... cospes FOGO!', help: 'Cospes bolas de fogo que atravessam os monstros e partem as caixas.' },
     roach: { name: 'Barata', toast: 'Ups, encontrámos um bug! Os comandos estão malucos!', help: 'Ups, encontrámos um bug! O jogo encrava e os comandos ficam trocados.' },
     rabbit: { name: 'Coelho Branco', toast: 'Apanhaste o Coelho Branco! Bem-vindo à Matrix...', help: 'Ele foge! Apanha-o para entrares na Matrix.' },
     bomb: { name: 'Bombas de Abóbora', toast: 'BOMBAS DE ABÓBORA! +2 bombas. Larga uma com o botão BOMBA!', help: '+2 bombas de abóbora. Larga-as com BOMBA para rebentar caixas e monstros.' },

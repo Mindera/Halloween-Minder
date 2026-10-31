@@ -475,6 +475,10 @@ export class Renderer {
     }
     for (const e of game.eyes) {
       const d = DIRS[e.dir];
+      if (e.fire) {
+        this.drawFireball(e.x * T, e.y * T, d.x, d.y, game.time * 30 + e.id);
+        continue;
+      }
       drawEyeball(ctx, e.x * T, e.y * T, T * 0.21, d.x, d.y, this.minders[e.owner]?.iris ?? '#3a7bd5', e.spin);
     }
     this.drawCricketWaves(game);
@@ -1553,6 +1557,37 @@ export class Renderer {
     ctx.beginPath();
     ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
     ctx.stroke();
+  }
+
+  /** A chocolate fireball with a flickering tail. */
+  private drawFireball(x: number, y: number, dx: number, dy: number, t: number) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    const r = T * (0.22 + Math.sin(t) * 0.02);
+    const tail = T * (0.75 + Math.sin(t * 1.7) * 0.1);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.atan2(dy, dx));
+    const g = ctx.createLinearGradient(-tail, 0, 0, 0);
+    g.addColorStop(0, 'rgba(255,61,0,0)');
+    g.addColorStop(1, 'rgba(255,120,0,0.9)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(-tail, Math.sin(t * 2.3) * r * 0.3);
+    ctx.quadraticCurveTo(-r * 1.4, -r * 1.2, 0, -r);
+    ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2);
+    ctx.quadraticCurveTo(-r * 1.4, r * 1.2, -tail, Math.sin(t * 2.3) * r * 0.3);
+    ctx.fill();
+    const core = ctx.createRadialGradient(r * 0.25, 0, 0, 0, 0, r * 1.15);
+    core.addColorStop(0, '#fffde7');
+    core.addColorStop(0.35, '#ffea00');
+    core.addColorStop(0.7, '#ff9100');
+    core.addColorStop(1, 'rgba(255,61,0,0.6)');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   private drawBombs(game: Game) {

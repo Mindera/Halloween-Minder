@@ -327,6 +327,7 @@ export const es: Dict = {
     beer: { name: 'Zarzaparrilla', toast: '¡ZARZAPARRILLA! Uy... todo se tambalea. ¡Hip!', help: '¡Refresco de zarzaparrilla! La pantalla se tambalea y se ve borrosa. ¡Hip!' },
     computer: { name: 'Computadora', toast: '¡COMPUTADORA! ¡Los monstruos tienen la pantalla azul de la muerte!', help: '¡Pantalla azul de la muerte! Los monstruos se congelan: tócalos para borrarlos.' },
     coffee: { name: 'Café', toast: '¡CAFÉ! ¡Ráfaga de ojos!', help: '¡Ráfaga de ojos!' },
+    choco: { name: 'Chocolate', toast: '¡CHOCOLATE! Qué calor... ¡escupes FUEGO!', help: 'Escupes bolas de fuego que atraviesan a los monstruos y rompen las cajas.' },
     roach: { name: 'Cucaracha', toast: '¡Uy, encontramos un bug! ¡Los controles fallan!', help: '¡Uy, encontramos un bug! El juego falla y los controles se mezclan.' },
     rabbit: { name: 'Conejo Blanco', toast: '¡Atrapaste al Conejo Blanco! Entrando en Matrix...', help: '¡Se escapa! Atrápalo para entrar en Matrix.' },
     bomb: { name: 'Bombas calabaza', toast: '¡BOMBAS CALABAZA! +2 bombas. ¡Suelta una con el botón BOMBA!', help: '+2 bombas calabaza. Suéltalas con BOMBA para hacer explotar cajas y monstruos.' },

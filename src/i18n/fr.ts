@@ -327,6 +327,7 @@ export const fr: Dict = {
     beer: { name: 'Limonade', toast: 'LIMONADE ! Oh là là... tout tremblote. Hic !', help: "Trop de bulles ! L'écran tremblote et devient flou. Hic !" },
     computer: { name: 'Ordinateur', toast: "ORDINATEUR ! Les monstres ont l'écran bleu de la mort !", help: 'Écran bleu de la mort ! Les monstres se figent : touche-les pour les supprimer.' },
     coffee: { name: 'Café', toast: "CAFÉ ! Rafale d'yeux !", help: "Rafale d'yeux !" },
+    choco: { name: 'Chocolat', toast: 'CHOCOLAT ! Ça chauffe... tu craches du FEU !', help: 'Tu craches des boules de feu qui traversent les monstres et cassent les caisses.' },
     roach: { name: 'Cafard', toast: "Oups, on a trouvé un bug ! Les commandes font n'importe quoi !", help: "Oups, on a trouvé un bug ! Le jeu beugue et les commandes s'emmêlent." },
     rabbit: { name: 'Lapin Blanc', toast: 'Tu as attrapé le Lapin Blanc ! Bienvenue dans la Matrix...', help: "Il s'enfuit ! Attrape-le pour entrer dans la Matrix." },
     bomb: { name: 'Bombes citrouilles', toast: 'BOMBES CITROUILLES ! +2 bombes. Poses-en une avec le bouton BOMBE !', help: '+2 bombes citrouilles. Pose-les avec BOMBE pour faire exploser les caisses et les monstres.' },

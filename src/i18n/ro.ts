@@ -327,6 +327,7 @@ export const ro: Dict = {
     beer: { name: 'Suc cu bule', toast: 'SUC CU BULE! Uau... totul se clatină. Hâc!', help: 'Suc cu bule! Ecranul se clatină și se încețoșează. Hâc!' },
     computer: { name: 'Calculator', toast: 'CALCULATOR! Monștrii au primit Ecranul Albastru al Morții!', help: 'Ecranul Albastru al Morții! Monștrii îngheață — atinge-i ca să-i ștergi.' },
     coffee: { name: 'Cafea', toast: 'CAFEA! Ochi în rafală!', help: 'Ochi în rafală!' },
+    choco: { name: 'Ciocolată', toast: 'CIOCOLATĂ! Ce fierbinte... scuipi FOC!', help: 'Scuipi mingi de foc care trec prin monștri și sparg lăzile.' },
     roach: { name: 'Gândac', toast: 'Ups, am găsit un bug! Comenzile o iau razna!', help: 'Ups, am găsit un bug! Jocul se strică și comenzile se încurcă.' },
     rabbit: { name: 'Iepurele Alb', toast: 'L-ai prins pe Iepurele Alb! Bun venit în Matrix...', help: 'Fuge de tine! Prinde-l ca să intri în Matrix.' },
     bomb: { name: 'Bombe-dovleac', toast: 'BOMBE-DOVLEAC! +2 bombe. Lasă una cu butonul BOMBĂ!', help: '+2 bombe-dovleac. Lasă-le cu BOMBĂ ca să spargi lăzi și să pocnești monștri.' },

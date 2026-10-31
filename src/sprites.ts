@@ -523,6 +523,47 @@ const drawCoffee: Draw = (g) => {
   g.fillRect(-0.22, 0.04, 0.42, 0.07);
 };
 
+/** A half-unwrapped chocolate bar with a bite out of it, and a little flame flickering over it. */
+const drawChoco: Draw = (g, f) => {
+  g.save();
+  g.rotate(-0.3);
+  // The bar, with a bite out of the top-right corner.
+  g.save();
+  g.beginPath();
+  g.rect(-0.4, -0.5, 0.8, 1);
+  g.arc(0.2, -0.36, 0.1, 0, TAU, true);
+  g.clip('evenodd');
+  g.fillStyle = '#4e2a12';
+  rrect(g, -0.2, -0.38, 0.4, 0.42, 0.05);
+  g.fillStyle = '#7b4a24';
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 2; c++) rrect(g, -0.17 + c * 0.18, -0.35 + r * 0.18, 0.15, 0.15, 0.03);
+  g.restore();
+  // Red wrapper with a zigzag of gold foil.
+  g.fillStyle = '#ffd54f';
+  g.beginPath();
+  g.moveTo(-0.22, 0.04);
+  for (let i = 0; i <= 8; i++) g.lineTo(-0.22 + i * 0.055, i % 2 ? -0.03 : 0.04);
+  g.lineTo(0.22, 0.1);
+  g.lineTo(-0.22, 0.1);
+  g.fill();
+  g.fillStyle = '#d32f2f';
+  rrect(g, -0.23, 0.06, 0.46, 0.32, 0.04);
+  g.fillStyle = '#ffd54f';
+  g.fillRect(-0.23, 0.18, 0.46, 0.06);
+  g.restore();
+  // Hot!
+  const s = f ? 1.15 : 0.9;
+  g.fillStyle = '#ff6d00';
+  g.beginPath();
+  g.moveTo(0.3, -0.18);
+  g.quadraticCurveTo(0.44, -0.24, 0.36, -0.42 * s);
+  g.quadraticCurveTo(0.3, -0.3, 0.26, -0.36);
+  g.quadraticCurveTo(0.16, -0.24, 0.3, -0.18);
+  g.fill();
+  g.fillStyle = '#ffea00';
+  ellipse(g, 0.31, -0.24, 0.035, 0.05 * s);
+};
+
 const drawRoach: Draw = (g, f) => {
   const wiggle = f ? 0.04 : -0.04;
   for (const s of [-1, 1]) {
@@ -663,6 +704,7 @@ export const ITEM_ART: Record<ItemKind, Draw> = {
   beer: drawBeer,
   computer: drawComputer,
   coffee: drawCoffee,
+  choco: drawChoco,
   roach: drawRoach,
   rabbit: drawRabbit,
   bomb: drawBomb,

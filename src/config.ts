@@ -99,7 +99,7 @@ export const BOSS_EVERY = BOSS_EVERY_LEVELS;
 /** Optional photo for Palos' cousin, e.g. 'boss/palos-cousin.png' in public/. Empty = cartoon drawing. */
 export const BOSS_PHOTO = '';
 
-export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'roach' | 'rabbit' | 'bomb' | 'candy' | 'cake';
+export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'choco' | 'roach' | 'rabbit' | 'bomb' | 'candy' | 'cake';
 
 export interface ItemDef {
   weight: number;
@@ -116,6 +116,7 @@ export const ITEMS: Record<ItemKind, ItemDef> = {
   beer: { weight: 2 },
   computer: { weight: 2 },
   coffee: { weight: 3 },
+  choco: { weight: 3 },
   roach: { weight: 2 },
   rabbit: { weight: 2 },
   bomb: { weight: 2, instant: true },
