@@ -50,6 +50,57 @@ export const CHANT_TIME = { chant: 3.8, chantFast: 2.3, chantSlow: 5.4 };
 /** The doll's sing-song chant, as [note, beats]. */
 const CHANT: [number, number][] = [[67, 1], [67, 1], [67, 1.5], [64, 1], [67, 1], [67, 1], [64, 1], [69, 1], [67, 1], [64, 2]];
 
+/**
+ * The in-game music: an original Halloween dance in D minor, 16 bars of 8 eighth notes (about 24 s a loop).
+ * Bars 1-8 creep about on a theremin over harpsichord, church organ and plucked bass; bars 9-16 are the
+ * skeletons' dance on xylophone "bones" and bassoon. A midnight bell tolls at the top of each loop.
+ * Each bar is its chord plus the tune as [note, eighths] (-1 is a rest).
+ */
+const SPOOKY_STEP = 0.19;
+/** Music volume per tune: the Halloween dance has more going on, so it sits a little lower under the effects. */
+export const MUSIC_LEVEL = { spooky: 0.15, party: 0.22 };
+const CHORDS = {
+  Dm: { root: 50, notes: [62, 65, 69] },
+  Gm: { root: 43, notes: [62, 67, 70] },
+  Bb: { root: 46, notes: [62, 65, 70] },
+  A: { root: 45, notes: [61, 64, 69] },
+  A7: { root: 45, notes: [61, 64, 67] },
+};
+const SONG: { c: keyof typeof CHORDS; m: [number, number][] }[] = [
+  // Creeping up the stairs (theremin).
+  { c: 'Dm', m: [[74, 2], [69, 1], [74, 1], [77, 2], [76, 1], [74, 1]] },
+  { c: 'Dm', m: [[73, 2], [74, 1], [76, 1], [69, 4]] },
+  { c: 'Bb', m: [[77, 2], [74, 1], [70, 1], [68, 2], [69, 2]] },
+  { c: 'A7', m: [[76, 1], [77, 1], [76, 1], [74, 1], [73, 4]] },
+  { c: 'Dm', m: [[74, 2], [69, 1], [74, 1], [77, 2], [81, 2]] },
+  { c: 'Gm', m: [[79, 2], [70, 1], [74, 1], [79, 1], [77, 1], [76, 2]] },
+  { c: 'A7', m: [[77, 1], [76, 1], [74, 1], [73, 1], [76, 1], [74, 1], [73, 1], [69, 1]] },
+  { c: 'Dm', m: [[74, 3], [-1, 1], [69, 1], [70, 1], [71, 1], [72, 1]] },
+  // The skeletons dance (xylophone bones).
+  { c: 'Gm', m: [[74, 1], [-1, 1], [74, 1], [-1, 1], [70, 1], [72, 1], [74, 2]] },
+  { c: 'Dm', m: [[69, 1], [-1, 1], [69, 1], [-1, 1], [65, 1], [67, 1], [69, 2]] },
+  { c: 'Gm', m: [[74, 1], [-1, 1], [74, 1], [-1, 1], [79, 1], [77, 1], [75, 2]] },
+  { c: 'A', m: [[74, 1], [73, 1], [-1, 1], [76, 1], [69, 4]] },
+  { c: 'Bb', m: [[77, 1], [-1, 1], [77, 1], [-1, 1], [74, 1], [76, 1], [77, 2]] },
+  { c: 'Gm', m: [[79, 1], [77, 1], [76, 1], [74, 1], [70, 2], [67, 2]] },
+  { c: 'A7', m: [[69, 1], [73, 1], [76, 1], [79, 1], [82, 2], [81, 2]] },
+  { c: 'A7', m: [[76, 1], [77, 1], [76, 1], [73, 1], [69, 2], [-1, 2]] },
+];
+
+interface Voice {
+  type?: OscillatorType;
+  /** Seconds to reach full volume. */
+  attack?: number;
+  /** Fraction of the note held at full volume before fading (0 = fade straight away, like a pluck). */
+  hold?: number;
+  /** Lowpass filter cutoff in Hz. */
+  filter?: number;
+  /** Vibrato depth in cents. */
+  vibrato?: number;
+  /** Slide up or down from this frequency. */
+  from?: number;
+}
+
 /** With "no scary sounds" on, these are swapped for gentle ones (or silence). */
 const GENTLE: Partial<Record<Sfx, Sfx | null>> = { boo: 'appear', boss: 'item', spawn: null, boom: 'crack', glitch: 'click', death: 'cry' };
 
@@ -62,6 +113,8 @@ export class SoundBoard {
   private musicStep = 0;
   private musicNext = 0;
   private musicMode: 'spooky' | 'party' = 'spooky';
+  /** Last theremin note, so the next one can glide from it. */
+  private glide = 0;
   private pelletToggle = false;
   muted = false;
 
@@ -324,7 +377,9 @@ export class SoundBoard {
     if (!this.ctx) return;
     this.musicMode = mode;
     this.musicStep = 0;
+    this.glide = 0;
     this.musicNext = this.ctx.currentTime + 0.1;
+    this.musicGain?.gain.setValueAtTime(MUSIC_LEVEL[mode], this.ctx.currentTime);
     this.musicTimer = window.setInterval(() => this.scheduleMusic(), 50);
   }
 
@@ -333,28 +388,188 @@ export class SoundBoard {
     this.musicTimer = undefined;
   }
 
-  private scheduleMusic() {
+  /** Schedules the notes due in the next `horizon` seconds (the timer calls it every 50 ms). */
+  private scheduleMusic(horizon = 0.25) {
     const ctx = this.ctx;
     if (!ctx || !this.musicGain) return;
     const spooky = this.musicMode === 'spooky';
-    const stepDur = spooky ? 0.2 : 0.16;
-    // Spooky: D minor walking bass with a wobbly "theremin". Party: bouncy major arpeggio.
-    const bass = spooky ? [50, 50, 57, 50, 58, 50, 57, 53] : [60, 67, 64, 67, 65, 69, 67, 71];
-    const lead = spooky
-      ? [74, -1, -1, 77, -1, 76, -1, 74, 73, -1, -1, -1, 74, -1, 70, -1]
-      : [72, 76, 79, 76, 77, 81, 79, 76, 72, 76, 79, 84, 83, 79, 77, 74];
-    while (this.musicNext < ctx.currentTime + 0.25) {
+    const stepDur = spooky ? SPOOKY_STEP : 0.16;
+    while (this.musicNext < ctx.currentTime + horizon) {
       const s = this.musicStep++;
-      const delay = Math.max(0, this.musicNext - ctx.currentTime);
+      const t = Math.max(ctx.currentTime, this.musicNext);
       if (!this.muted) {
-        if (s % 2 === 0) this.tone(NOTE(bass[(s / 2) % bass.length] - 12), stepDur * 1.6, 'triangle', 0.5, undefined, delay, this.musicGain);
-        const n = lead[s % lead.length];
-        if (n > 0) {
-          this.tone(NOTE(n), stepDur * (spooky ? 2.5 : 0.9), spooky ? 'sine' : 'square', spooky ? 0.25 : 0.12, spooky ? NOTE(n) * 0.985 : undefined, delay, this.musicGain);
-        }
+        if (spooky) this.halloweenStep(s, t);
+        else this.partyStep(s, t - ctx.currentTime, stepDur);
       }
       this.musicNext += stepDur;
     }
+  }
+
+  /** Level 12's bouncy major arpeggio. */
+  private partyStep(s: number, delay: number, stepDur: number) {
+    const bass = [60, 67, 64, 67, 65, 69, 67, 71];
+    const lead = [72, 76, 79, 76, 77, 81, 79, 76, 72, 76, 79, 84, 83, 79, 77, 74];
+    if (s % 2 === 0) this.tone(NOTE(bass[(s / 2) % bass.length] - 12), stepDur * 1.6, 'triangle', 0.5, undefined, delay, this.musicGain);
+    this.tone(NOTE(lead[s % lead.length]), stepDur * 0.9, 'square', 0.12, undefined, delay, this.musicGain);
+  }
+
+  /** One eighth note of the Halloween dance (see SONG), starting at time `t`. */
+  private halloweenStep(s: number, t: number) {
+    const d = SPOOKY_STEP;
+    const bar = Math.floor(s / 8) % SONG.length;
+    const step = s % 8;
+    const { c, m } = SONG[bar];
+    const chord = CHORDS[c];
+    const next = CHORDS[SONG[(bar + 1) % SONG.length].c];
+    const dance = bar >= 8;
+
+    // The tune.
+    let at = 0;
+    for (const [n, len] of m) {
+      if (at === step) {
+        if (n < 0) this.glide = 0;
+        else if (dance) {
+          this.xylophone(NOTE(n + 12), t);
+          this.voice(NOTE(n - 12), t, len * d * 0.85, 0.1, { type: 'square', filter: 700, attack: 0.02, hold: 0.6 });
+        } else {
+          const f = NOTE(n);
+          this.voice(f, t, len * d * 0.97, 0.26, { attack: 0.05, hold: 0.8, vibrato: 30, from: this.glide || undefined });
+          this.glide = f;
+        }
+      }
+      at += len;
+    }
+
+    // Plucked bass on the beat, walking up a semitone into the next chord.
+    if (step === 0) this.pizz(NOTE(chord.root), t);
+    if (step === 4) this.pizz(NOTE(chord.root - 5), t);
+    if (step === 6) this.pizz(NOTE(next.root - 1), t);
+    // Harpsichord on the off-beats (crisper while the skeletons dance).
+    if (step === 2 || step === 6) {
+      for (const n of chord.notes) this.voice(NOTE(n), t, dance ? 0.14 : 0.26, 0.05, { type: 'sawtooth', filter: 2600 });
+    }
+    // A soft church organ under the theremin.
+    if (step === 0 && !dance) {
+      for (const n of chord.notes) {
+        [1, 2, 3].forEach((h, i) => this.voice(NOTE(n) * h, t, d * 8, [0.035, 0.016, 0.008][i], { attack: 0.08, hold: 0.85 }));
+      }
+    }
+    // The midnight bell, the wind and a passing ghost.
+    if (bar === 0 && step === 0) this.bell(NOTE(62), t);
+    if ((bar === 0 || bar === 8) && step === 0) this.wind(t, d * 16);
+    if (bar === 15 && step === 6) this.ghostly(t);
+  }
+
+  /** A music note at absolute time `t`. */
+  private voice(f: number, t: number, dur: number, vol: number, o: Voice = {}) {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicGain) return;
+    const osc = ctx.createOscillator();
+    osc.type = o.type ?? 'sine';
+    if (o.from) {
+      osc.frequency.setValueAtTime(o.from, t);
+      osc.frequency.exponentialRampToValueAtTime(f, t + Math.min(0.08, dur * 0.4));
+    } else osc.frequency.setValueAtTime(f, t);
+    const a = o.attack ?? 0.004;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + a);
+    if (o.hold) g.gain.setValueAtTime(vol, t + Math.max(a, dur * o.hold));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(a + 0.01, dur));
+    let out: AudioNode = osc;
+    if (o.filter) {
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = o.filter;
+      out = out.connect(lp);
+    }
+    out.connect(g).connect(this.musicGain);
+    if (o.vibrato) {
+      // Vibrato that creeps in, like a theremin player's hand.
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 5.6;
+      const depth = ctx.createGain();
+      depth.gain.setValueAtTime(0, t);
+      depth.gain.linearRampToValueAtTime(o.vibrato, t + Math.min(0.3, dur * 0.6));
+      lfo.connect(depth).connect(osc.detune);
+      lfo.start(t);
+      lfo.stop(t + dur + 0.05);
+    }
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  }
+
+  private pizz(f: number, t: number) {
+    this.voice(f, t, 0.4, 0.45, { type: 'triangle' });
+    this.voice(f * 2, t, 0.09, 0.06, { type: 'square', filter: 1400 });
+  }
+
+  /** Bones: a wooden tok with a bright overtone and a click. */
+  private xylophone(f: number, t: number) {
+    this.voice(f, t, 0.24, 0.3);
+    this.voice(f * 3.93, t, 0.06, 0.06);
+    this.musicNoise(t, 0.025, 0.12, 3500, 3500);
+  }
+
+  /** A church bell: inharmonic partials that ring out at different rates. */
+  private bell(f: number, t: number) {
+    for (const [k, vol, dur] of [
+      [0.5, 0.18, 3.2],
+      [1, 0.26, 2.6],
+      [2, 0.1, 1.8],
+      [2.4, 0.08, 1.4],
+      [3, 0.06, 1.1],
+      [4.2, 0.05, 0.8],
+      [5.4, 0.035, 0.6],
+    ]) {
+      this.voice(f * k, t, dur, vol);
+    }
+  }
+
+  /** "Woooo": a ghost floats past. */
+  private ghostly(t: number) {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicGain) return;
+    const osc = ctx.createOscillator();
+    osc.frequency.setValueAtTime(520, t);
+    osc.frequency.exponentialRampToValueAtTime(840, t + 0.3);
+    osc.frequency.exponentialRampToValueAtTime(560, t + 0.75);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    osc.connect(g).connect(this.musicGain);
+    osc.start(t);
+    osc.stop(t + 0.85);
+  }
+
+  /** A gust of wind rising and falling. */
+  private wind(t: number, dur: number) {
+    this.musicNoise(t, dur, 0.09, 350, 1100, true);
+  }
+
+  /** Filtered noise for the music; `swell` fades in and out and sweeps the filter up and back. */
+  private musicNoise(t: number, dur: number, vol: number, from: number, to: number, swell = false) {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicGain || !this.noiseBuf) return;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = swell ? 2.5 : 4;
+    f.frequency.setValueAtTime(from, t);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    if (swell) {
+      f.frequency.exponentialRampToValueAtTime(to, t + dur * 0.5);
+      f.frequency.exponentialRampToValueAtTime(from, t + dur);
+      g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.45);
+    } else g.gain.exponentialRampToValueAtTime(vol, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.musicGain);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.02);
   }
 }
 
