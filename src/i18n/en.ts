@@ -113,6 +113,8 @@ export const en = {
     doors10: 'Opened 10 trick-or-treat doors',
     pet: 'Made a monster friend',
     snacks: 'Tried every snack',
+    secret: 'Found the secret',
+    secretLocked: 'Top secret 🤫',
   },
   wardrobe: {
     title: 'Wardrobe',

@@ -110,6 +110,8 @@ export const ptBR: Dict = {
     doors10: '10 portas de gostosuras ou travessuras',
     pet: 'Amizade monstruosa',
     snacks: 'Todos os lanchinhos provados',
+    secret: 'Segredo descoberto',
+    secretLocked: 'Ultrassecreto 🤫',
   },
   wardrobe: {
     title: 'Fantasias',

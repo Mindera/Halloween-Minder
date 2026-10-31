@@ -676,7 +676,7 @@ function text(g: G, s: string, color: string, size: number) {
   textU(g, s, 0, 0.01, size, color);
 }
 
-export const PELLETS: Draw[] = [
+const PELLETS: Draw[] = [
   (g) => text(g, '0', '#39ff88', 0.3),
   (g) => text(g, '1', '#39ff88', 0.3),
   (g) => text(g, '{}', '#ffd400', 0.24),

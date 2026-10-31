@@ -109,6 +109,8 @@ export const es: Dict = {
     doors10: '10 puertas de dulce o truco abiertas',
     pet: 'Un amigo monstruoso',
     snacks: 'Todos los snacks probados',
+    secret: 'Secreto descubierto',
+    secretLocked: 'Alto secreto 🤫',
   },
   wardrobe: {
     title: 'Disfraces',

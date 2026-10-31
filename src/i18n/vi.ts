@@ -109,6 +109,8 @@ export const vi: Dict = {
     doors10: 'Mở 10 cửa kẹo hay ghẹo',
     pet: 'Kết bạn với quái vật',
     snacks: 'Nếm thử mọi món ăn vặt',
+    secret: 'Tìm ra bí mật',
+    secretLocked: 'Tuyệt mật 🤫',
   },
   wardrobe: {
     title: 'Tủ đồ',

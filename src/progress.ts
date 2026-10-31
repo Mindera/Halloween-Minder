@@ -78,6 +78,8 @@ export interface Stats {
   fastClears: number;
   doors: number;
   pets: number;
+  /** Times the title screen's secret climb was found. */
+  secrets: number;
   items: string[];
 }
 
@@ -85,7 +87,7 @@ const STATS_KEY = 'hm.stats';
 const STICKERS_KEY = 'hm.stickers';
 export const stats: Stats = read<Stats>(STATS_KEY, {
   crates: 0, kills: 0, bombKills: 0, rabbits: 0, teleports: 0, bossKills: 0, bossBombOnly: 0, bestBlast: 0,
-  maxLevel: 0, partyClears: 0, squidClears: 0, dailyClears: 0, coopClears: 0, fastClears: 0, doors: 0, pets: 0, items: [],
+  maxLevel: 0, partyClears: 0, squidClears: 0, dailyClears: 0, coopClears: 0, fastClears: 0, doors: 0, pets: 0, secrets: 0, items: [],
 });
 const earned = new Set<string>(read<{ list: string[] }>(STICKERS_KEY, { list: [] }).list);
 
@@ -96,6 +98,8 @@ export interface Sticker {
   icon: string;
   /** Current value and goal, for the progress shown under locked stickers. */
   progress: (s: Stats) => [number, number];
+  /** Its name stays hidden in the sticker book until it is earned. */
+  secret?: boolean;
 }
 
 export const STICKERS: Sticker[] = [
@@ -118,6 +122,7 @@ export const STICKERS: Sticker[] = [
   { id: 'doors10', icon: '🚪', progress: (s) => [s.doors, 10] },
   { id: 'pet', icon: '🦇', progress: (s) => [s.pets, 1] },
   { id: 'snacks', icon: '🍬', progress: (s) => [ALL_ITEMS.filter((k) => s.items.includes(k)).length, ALL_ITEMS.length] },
+  { id: 'secret', icon: '🥚', progress: (s) => [s.secrets, 1], secret: true },
 ];
 
 export const hasSticker = (id: string) => earned.has(id);
@@ -135,7 +140,8 @@ export type GameEvent =
   | { type: 'clear'; level: number; timeLeft: number; party: boolean; coop: boolean; squid: boolean }
   | { type: 'dailyClear' }
   | { type: 'door' }
-  | { type: 'pet' };
+  | { type: 'pet' }
+  | { type: 'secret' };
 
 export interface Rewards {
   stickers: Sticker[];
@@ -183,6 +189,9 @@ export function record(e: GameEvent, arcade: boolean): Rewards {
       break;
     case 'pet':
       stats.pets++;
+      break;
+    case 'secret':
+      stats.secrets++;
       break;
   }
   const rewards: Rewards = { stickers: [], costumes: [] };

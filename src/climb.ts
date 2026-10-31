@@ -12,12 +12,15 @@
  *   and shows its score. The best score and height are kept on the device.
  *
  * Everything runs in its own full-screen overlay on top of the title screen, which scrolls away underneath.
+ * It is dressed in Mindera's colours (from mindera.com): brand yellow on black. The climber is the selected
+ * Minder, wearing whatever it has on from the Wardrobe, and finding the game earns the 🥚 secret sticker.
  */
 import { audio } from './audio';
 import { buzz } from './feedback';
 import { t, ta, uiFont } from './i18n';
-import { settings } from './progress';
-import { ITEM_ART, MONSTER_ART, PELLETS, bake, drawEyeball, drawGooglyEye } from './sprites';
+import { outfit, settings } from './progress';
+import { drawCape, drawHat } from './render';
+import { MONSTER_ART, bake, drawEyeball, drawGooglyEye, textU } from './sprites';
 
 type G = CanvasRenderingContext2D;
 
@@ -36,7 +39,39 @@ const MAX_GAP = 0.86 * ((JUMP * JUMP) / (2 * GRAVITY));
 const CAMERA_LINE = 0.42; // the camera follows once the Minder rises above this fraction of the screen
 const KEY = 'hm.climb';
 
-const SPARK_COLORS = ['#ffd400', '#ff7b00', '#ea80fc', '#69f0ae'];
+/** Mindera's colours, from mindera.com: brand yellow, black and their greys. */
+const M = {
+  yellow: '#ffc700',
+  gold: '#d9a900',
+  black: '#0a0a0b',
+  ink: '#232326',
+  grey: '#3d3d42',
+  stone: '#57575f',
+  mist: '#eaeaeb',
+  cream: '#fff9e5',
+};
+const SPARK_COLORS = [M.yellow, M.cream, '#ffffff', M.gold];
+/** The IT bits to collect, in yellow code. */
+const BITS: [string, number][] = [
+  ['0', 0.34],
+  ['1', 0.34],
+  ['{}', 0.26],
+  ['</>', 0.21],
+  ['01', 0.26],
+];
+
+export interface ClimbStart {
+  /** The title Minder: the game starts from its spot, and the climber lands back there at the end. */
+  home: HTMLImageElement;
+  /** The title panel, which scrolls away underneath. */
+  panel: HTMLElement;
+  /** The selected Minder's picture, the colour of its eyeballs and where its eye is (0..1). */
+  src: string;
+  iris: string;
+  eye: [number, number];
+  /** Shown as the game opens, e.g. the sticker for finding it. */
+  announce?: string;
+}
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
@@ -139,7 +174,9 @@ export class Climb {
   private hintEl?: HTMLElement;
   private bubble?: HTMLElement;
   private bubbleTimer = 0;
-  private img!: HTMLImageElement;
+  /** The title Minder (where it starts and lands) and the picture drawn while climbing. */
+  private home!: HTMLImageElement;
+  private sprite!: HTMLImageElement;
   private panel!: HTMLElement;
   private iris = '#3a7bd5';
   private eye: [number, number] = [0.5, 0.35];
@@ -205,8 +242,7 @@ export class Climb {
   private downY = 0;
   private moved = 0;
 
-  private woodFill?: CanvasGradient;
-  private batFill?: CanvasGradient;
+  private plankFill?: CanvasGradient;
   private art = {
     bits: [] as HTMLCanvasElement[],
     candy: null as HTMLCanvasElement | null,
@@ -223,14 +259,28 @@ export class Climb {
   private onBubbleTap = () => this.dismissBubble(true);
 
   /** Starts from the title Minder's spot. Returns false when it can't (image hidden or not loaded). */
-  start(img: HTMLImageElement, panel: HTMLElement, iris: string, eye: [number, number]): boolean {
-    if (this.active || !img.offsetWidth || !img.naturalWidth) return false;
+  start({ home, panel, src, iris, eye, announce }: ClimbStart): boolean {
+    if (this.active || !home.offsetWidth || !home.naturalWidth) return false;
     this.dismissBubble();
     this.active = true;
-    this.img = img;
+    this.home = home;
     this.panel = panel;
     this.iris = iris;
     this.eye = eye;
+    // Always the selected Minder (the title shows the same picture, so it is normally already loaded).
+    const sprite = new Image();
+    sprite.src = src;
+    this.sprite = sprite.complete && sprite.naturalWidth ? sprite : home;
+    if (this.sprite !== sprite) {
+      void sprite
+        .decode()
+        .then(() => {
+          this.sprite = sprite;
+          this.aspect = sprite.naturalWidth / sprite.naturalHeight;
+        })
+        .catch(() => undefined);
+    }
+    const img = home;
     img.classList.add('climbing');
     // Space and Enter steer the game now, not whatever button underneath had focus.
     (document.activeElement as HTMLElement | null)?.blur?.();
@@ -241,7 +291,7 @@ export class Climb {
     root.setAttribute('aria-hidden', 'true');
     const canvas = document.createElement('canvas');
     const touch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-    root.innerHTML = `<div class="climb-hud"><span>${t('hud.score')}<b></b></span><span>${t('climb.best')}<b></b></span></div><p class="climb-hint"></p>`;
+    root.innerHTML = `<div class="climb-hud"><span>${t('hud.score')}<b></b></span><span>${t('climb.best')}<b></b></span></div><p class="climb-badge" hidden></p><p class="climb-hint"></p>`;
     root.prepend(canvas);
     document.body.appendChild(root);
     this.root = root;
@@ -251,14 +301,21 @@ export class Climb {
     this.hintEl = root.querySelector<HTMLElement>('.climb-hint')!;
     this.hintEl.textContent = t(touch ? 'climb.hintTouch' : 'climb.hintKeys');
     this.shown = { score: '', best: '' };
+    if (announce) {
+      const badge = root.querySelector<HTMLElement>('.climb-badge')!;
+      badge.textContent = `🥚 ${announce}`;
+      badge.hidden = false;
+      window.setTimeout(() => badge.classList.add('gone'), 3600);
+      window.setTimeout(() => this.root === root && audio.play('item'), 450);
+    }
 
     this.resize();
     this.S = clamp(this.colW / 420, 0.8, 1.2);
     this.bakeArt();
-    this.woodFill = this.batFill = undefined;
+    this.plankFill = undefined;
     this.stars = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random(), r: rand(0.6, 1.8), phase: rand(0, 6.3) }));
 
-    this.aspect = img.naturalWidth / img.naturalHeight;
+    this.aspect = this.sprite.naturalWidth / this.sprite.naturalHeight;
     this.homeSize = r.height;
     this.gameSize = clamp(this.colW * 0.17, 54, 74);
     this.homeX = r.left + r.width / 2 - this.colX;
@@ -336,7 +393,7 @@ export class Climb {
     window.removeEventListener('resize', this.onResize);
     this.root?.remove();
     this.root = this.canvas = this.g = undefined;
-    this.img.classList.remove('climbing');
+    this.home.classList.remove('climbing');
     this.panel.classList.remove('climbing');
     this.panel.style.transform = '';
   }
@@ -436,10 +493,11 @@ export class Climb {
 
   private bakeArt() {
     const k = this.S * this.dpr;
-    this.art.bits = PELLETS.map((d) => bake(70 * k, (g) => d(g, 0), 1, 'rgba(120,255,200,0.7)').canvas);
-    this.art.candy = bake(46 * k, (g) => ITEM_ART.candy(g, 0), 1.6, 'rgba(255,240,180,0.9)').canvas;
-    this.art.bat = [0, 1].map((f) => bake(44 * MONSTER_ART.bat.scale * k, (g) => MONSTER_ART.bat.draw(g, f), 1.6).canvas);
-    this.art.ghost = [0, 1].map((f) => bake(50 * MONSTER_ART.ghost.scale * k, (g) => MONSTER_ART.ghost.draw(g, f), 1.6).canvas);
+    this.art.bits = BITS.map(([glyph, size]) => bake(70 * k, (g) => textU(g, glyph, 0, 0.01, size, M.yellow), 1, 'rgba(255,199,0,0.75)').canvas);
+    this.art.candy = bake(46 * k, drawCandy, 1.6, 'rgba(255,199,0,0.8)').canvas;
+    // A yellow glow keeps the dark bats visible on Mindera black.
+    this.art.bat = [0, 1].map((f) => bake(44 * MONSTER_ART.bat.scale * k, (g) => MONSTER_ART.bat.draw(g, f), 1.6, 'rgba(255,199,0,0.9)').canvas);
+    this.art.ghost = [0, 1].map((f) => bake(50 * MONSTER_ART.ghost.scale * k, (g) => MONSTER_ART.ghost.draw(g, f), 1.6, 'rgba(255,249,229,0.5)').canvas);
   }
 
   private plank(x: number, y: number, w: number, kind: PlankKind): Plank {
@@ -477,12 +535,12 @@ export class Climb {
       if (h > 500 && !flying && Math.random() < 0.07) p.pumpkin = true;
       // Goodies.
       if (Math.random() < 0.45) {
-        this.pickups.push({ kind: 'bit', x: clamp(p.x + rand(-w / 3, w / 3), 16, this.colW - 16), y: y - rand(36, 64) * S, art: (Math.random() * PELLETS.length) | 0, phase: rand(0, 6.3) });
+        this.pickups.push({ kind: 'bit', x: clamp(p.x + rand(-w / 3, w / 3), 16, this.colW - 16), y: y - rand(36, 64) * S, art: (Math.random() * BITS.length) | 0, phase: rand(0, 6.3) });
       } else if (Math.random() < 0.12) {
         // A little arc of bits.
         const cx = this.randX(60 * S);
         for (let i = -1; i <= 1; i++) {
-          this.pickups.push({ kind: 'bit', x: cx + i * 30 * S, y: y + gap * 0.5 + Math.abs(i) * 14 * S, art: (Math.random() * PELLETS.length) | 0, phase: i });
+          this.pickups.push({ kind: 'bit', x: cx + i * 30 * S, y: y + gap * 0.5 + Math.abs(i) * 14 * S, art: (Math.random() * BITS.length) | 0, phase: i });
         }
       }
       if (h > 900 && Math.random() < 0.035) this.pickups.push({ kind: 'candy', x: this.randX(24 * S), y: y - rand(50, 90) * S, art: 0, phase: 0 });
@@ -673,19 +731,19 @@ export class Climb {
       if (Math.abs(it.x - this.x) > half * 0.7 + r || Math.abs(it.y - cy) > this.size * 0.45 + r) return true;
       if (it.kind === 'bit') {
         this.bonus += 5;
-        this.pop(it.x, it.y, '+5', '#69f0ae', 15);
+        this.pop(it.x, it.y, '+5', M.yellow, 15);
         audio.play('pellet');
       } else if (it.kind === 'candy') {
         this.bonus += 25;
-        this.pop(it.x, it.y, '+25', '#ffd54f', 18);
+        this.pop(it.x, it.y, '+25', M.yellow, 18);
         audio.play('candy');
       } else {
         this.broom = BROOM_TIME;
-        this.pop(it.x, it.y, t('pop.woohoo'), '#ea80fc', 20);
+        this.pop(it.x, it.y, t('pop.woohoo'), M.cream, 20);
         audio.play('warp');
         buzz('medium');
       }
-      for (let i = 0; i < 6; i++) this.spark(it.x, it.y, rand(-120, 120) * S, rand(-220, 0) * S, it.kind === 'bit' ? '#69f0ae' : '#ffd54f', rand(1.5, 3) * S, 0.45);
+      for (let i = 0; i < 6; i++) this.spark(it.x, it.y, rand(-120, 120) * S, rand(-220, 0) * S, it.kind === 'bit' ? M.yellow : M.cream, rand(1.5, 3) * S, 0.45);
       return false;
     });
 
@@ -729,7 +787,7 @@ export class Climb {
 
     if (!this.passedBest && this.score > this.best.score) {
       this.passedBest = true;
-      this.pop(this.x, this.y - this.size - 10 * S, t('climb.newBest'), '#69f0ae', 20);
+      this.pop(this.x, this.y - this.size - 10 * S, t('climb.newBest'), M.yellow, 20);
       audio.play('item');
     }
 
@@ -759,7 +817,7 @@ export class Climb {
     if (p.pumpkin) {
       this.vy = -JUMP * SPRING * S;
       p.squash = 1;
-      this.pop(p.x, p.y - 30 * S, t('pop.boing'), '#ffb74d', 18);
+      this.pop(p.x, p.y - 30 * S, t('pop.boing'), M.yellow, 18);
       audio.play('boing');
       buzz('light');
     } else {
@@ -768,7 +826,7 @@ export class Climb {
     }
     if (p.kind === 'ghost') {
       p.gone = 0;
-      for (let i = 0; i < 8; i++) this.spark(p.x + rand(-p.w / 2, p.w / 2), p.y, rand(-40, 40) * S, rand(-140, -40) * S, 'rgba(235,225,255,0.9)', rand(3, 6) * S, 0.5);
+      for (let i = 0; i < 8; i++) this.spark(p.x + rand(-p.w / 2, p.w / 2), p.y, rand(-40, 40) * S, rand(-140, -40) * S, 'rgba(255,199,0,0.6)', rand(3, 6) * S, 0.5);
     }
   }
 
@@ -779,8 +837,8 @@ export class Climb {
     f.spin = rand(-9, 9);
     this.bonus += 20;
     const words = ta('killWords');
-    this.pop(f.x, f.y - 22 * S, words[(Math.random() * words.length) | 0] ?? 'BONK!', '#ffeb3b', 18);
-    for (let i = 0; i < 10; i++) this.spark(f.x, f.y, rand(-200, 200) * S, rand(-260, 40) * S, f.kind === 'bat' ? '#b388ff' : '#ffffff', rand(2, 4) * S, 0.5);
+    this.pop(f.x, f.y - 22 * S, words[(Math.random() * words.length) | 0] ?? 'BONK!', M.yellow, 18);
+    for (let i = 0; i < 10; i++) this.spark(f.x, f.y, rand(-200, 200) * S, rand(-260, 40) * S, f.kind === 'bat' ? M.yellow : M.cream, rand(2, 4) * S, 0.5);
     audio.play('kill');
     buzz('light');
   }
@@ -828,7 +886,7 @@ export class Climb {
   /** "SCORE 41 · New best!" above the Minder's head, like a speech bubble. */
   private showBubble(score: number, isBest: boolean, best: number) {
     this.dismissBubble();
-    const r = this.img.getBoundingClientRect();
+    const r = this.home.getBoundingClientRect();
     if (!r.width) return;
     const b = document.createElement('div');
     b.className = `climb-bubble${isBest ? ' new' : ''}`;
@@ -913,17 +971,26 @@ export class Climb {
     }
   }
 
-  /** Clouds, then a big moon and more and more stars the higher it climbs. */
+  /** Mindera black closes in over the title, then grey clouds, a big yellow moon and more stars as it climbs. */
   private drawSky(g: G) {
     const { W, H, cam } = this;
+    const veil = lerp(0.62, 1, clamp(cam / (H * 0.8), 0, 1)) * clamp(this.time / 0.5, 0, 1) * this.fade;
+    if (veil > 0) {
+      g.globalAlpha = veil;
+      g.fillStyle = M.black;
+      g.fillRect(0, 0, W, H);
+    }
     const sky = clamp(cam / (H * 0.9), 0, 1);
-    if (sky <= 0) return;
+    if (sky <= 0) {
+      g.globalAlpha = 1;
+      return;
+    }
     const stars = clamp((cam - H * 0.4) / (H * 3), 0, 1);
     if (stars > 0) {
-      for (const s of this.stars) {
+      for (const [i, s] of this.stars.entries()) {
         const y = (((s.y * H + cam * 0.2) % H) + H) % H;
-        g.globalAlpha = stars * (0.45 + 0.55 * Math.abs(Math.sin(this.time * 1.5 + s.phase)));
-        g.fillStyle = '#fff8ec';
+        g.globalAlpha = stars * (0.4 + 0.6 * Math.abs(Math.sin(this.time * 1.5 + s.phase)));
+        g.fillStyle = i % 5 ? M.cream : M.yellow;
         g.beginPath();
         g.arc(s.x * W, y, s.r, 0, Math.PI * 2);
         g.fill();
@@ -936,17 +1003,17 @@ export class Climb {
       const mx = W * 0.8;
       g.globalAlpha = sky;
       const glow = g.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 2.6);
-      glow.addColorStop(0, 'rgba(255,236,170,0.35)');
-      glow.addColorStop(1, 'rgba(255,236,170,0)');
+      glow.addColorStop(0, 'rgba(255,199,0,0.32)');
+      glow.addColorStop(1, 'rgba(255,199,0,0)');
       g.fillStyle = glow;
       g.beginPath();
       g.arc(mx, my, mr * 2.6, 0, Math.PI * 2);
       g.fill();
-      g.fillStyle = '#fff3c4';
+      g.fillStyle = M.yellow;
       g.beginPath();
       g.arc(mx, my, mr, 0, Math.PI * 2);
       g.fill();
-      g.fillStyle = 'rgba(214,196,140,0.55)';
+      g.fillStyle = 'rgba(160,110,0,0.35)';
       for (const [cx, cy, cr] of [
         [-0.3, -0.2, 0.18],
         [0.25, 0.1, 0.24],
@@ -957,7 +1024,7 @@ export class Climb {
         g.arc(mx + cx * mr, my + cy * mr, cr * mr, 0, Math.PI * 2);
         g.fill();
       }
-      // A witch flies across it now and then.
+      // A witch flies across it now and then, in black.
       const k = (this.time % 14) / 14;
       if (k < 0.35) {
         const wx = mx - mr * 1.6 + (k / 0.35) * mr * 3.2;
@@ -965,11 +1032,11 @@ export class Climb {
         this.drawWitch(g, wx, wy, mr * 0.45);
       }
     }
-    // Drifting clouds, in two layers.
+    // Drifting grey clouds, in two layers.
     for (let layer = 0; layer < 2; layer++) {
       const span = H * 1.4;
       const size = (layer ? 1.2 : 0.8) * Math.min(W, 520) * 0.004;
-      g.globalAlpha = sky * (layer ? 0.3 : 0.2);
+      g.globalAlpha = sky * (layer ? 0.75 : 0.5);
       for (let i = 0; i < 3; i++) {
         const y = ((((i + 0.2 + layer * 0.45) / 3) * span + cam * (layer ? 0.5 : 0.3)) % span) - H * 0.2;
         const x = ((((i * 0.618 + layer * 0.3) % 1) * (W + 300) + this.time * (8 + layer * 6)) % (W + 300)) - 150;
@@ -980,7 +1047,7 @@ export class Climb {
   }
 
   private drawCloud(g: G, x: number, y: number, s: number) {
-    g.fillStyle = '#5b2a86';
+    g.fillStyle = M.ink;
     g.beginPath();
     g.arc(x, y, 34 * s, 0, Math.PI * 2);
     g.arc(x + 40 * s, y - 14 * s, 42 * s, 0, Math.PI * 2);
@@ -992,8 +1059,8 @@ export class Climb {
   private drawWitch(g: G, x: number, y: number, s: number) {
     g.save();
     g.translate(x, y);
-    g.fillStyle = 'rgba(26,11,46,0.85)';
-    g.strokeStyle = 'rgba(26,11,46,0.85)';
+    g.fillStyle = M.black;
+    g.strokeStyle = M.black;
     g.lineWidth = s * 0.08;
     g.lineCap = 'round';
     g.beginPath();
@@ -1016,15 +1083,15 @@ export class Climb {
     g.restore();
   }
 
-  /** On wide screens the column's sides are portals: off one side, back in on the other. */
+  /** On wide screens the column's sides glow yellow: off one side, back in on the other. */
   private drawEdges(g: G) {
-    for (const [x, dir, color] of [
-      [this.colX, 1, '24,255,255'],
-      [this.colX + this.colW, -1, '234,128,252'],
-    ] as [number, number, string][]) {
+    for (const [x, dir] of [
+      [this.colX, 1],
+      [this.colX + this.colW, -1],
+    ]) {
       const grad = g.createLinearGradient(x, 0, x + dir * 18, 0);
-      grad.addColorStop(0, `rgba(${color},0.22)`);
-      grad.addColorStop(1, `rgba(${color},0)`);
+      grad.addColorStop(0, 'rgba(255,199,0,0.28)');
+      grad.addColorStop(1, 'rgba(255,199,0,0)');
       g.fillStyle = grad;
       g.fillRect(Math.min(x, x + dir * 18), 0, 18, this.H);
     }
@@ -1035,7 +1102,8 @@ export class Climb {
     const y = this.startY - this.best.height * this.S + this.cam;
     if (y < -10 || y > this.H + 10) return;
     g.save();
-    g.strokeStyle = 'rgba(255,212,0,0.7)';
+    g.strokeStyle = M.yellow;
+    g.globalAlpha *= 0.8;
     g.lineWidth = 2;
     g.setLineDash([10, 8]);
     g.beginPath();
@@ -1044,13 +1112,14 @@ export class Climb {
     g.stroke();
     g.setLineDash([]);
     g.font = `700 ${Math.round(12 * this.S)}px ${uiFont()}`;
-    g.fillStyle = 'rgba(255,212,0,0.85)';
+    g.fillStyle = M.cream;
     g.textAlign = 'right';
     g.textBaseline = 'bottom';
     g.fillText(`🏆 ${t('climb.best')}`, this.colX + this.colW - 8, y - 4);
     g.restore();
   }
 
+  /** Planks are Mindera-yellow bars; ghost ones are a dashed outline; bat-carried ones are cream. */
   private drawPlank(g: G, p: Plank) {
     const S = this.S;
     const intro = this.phase === 'intro' && p === this.planks[0] ? easeOut(clamp(this.phaseT / 0.25, 0, 1)) : 1;
@@ -1060,12 +1129,12 @@ export class Climb {
     const y = p.y + this.cam + Math.sin(p.bob * 9) * p.bob * 5 * S;
     if (y < -40 || y > this.H + 40) return;
     g.save();
-    // Drawn from the plank's top centre, so the cached gradients line up.
+    // Drawn from the plank's top centre, so the cached gradient lines up.
     g.translate(x, y);
     if (p.kind === 'ghost') {
-      g.globalAlpha *= p.gone >= 0 ? Math.max(0, 1 - p.gone / 0.4) : 0.85;
-      g.fillStyle = 'rgba(220,205,255,0.14)';
-      g.strokeStyle = 'rgba(230,220,255,0.8)';
+      g.globalAlpha *= p.gone >= 0 ? Math.max(0, 1 - p.gone / 0.4) : 0.9;
+      g.fillStyle = 'rgba(255,199,0,0.08)';
+      g.strokeStyle = 'rgba(255,199,0,0.75)';
       g.lineWidth = 2;
       g.setLineDash([6, 5]);
       g.beginPath();
@@ -1076,11 +1145,11 @@ export class Climb {
       return;
     }
     if (p.kind === 'bat') {
-      // Two little bats carry it.
+      // Two little grey bats with yellow eyes carry it.
       const flap = Math.sin(this.time * 18 + p.seed * 6) * 0.5 + 0.5;
-      g.fillStyle = '#2b1b3d';
       for (const s of [-1, 1]) {
         const bx = s * (w / 2 - 4 * S);
+        g.fillStyle = M.stone;
         g.beginPath();
         g.moveTo(bx, 2 * S);
         g.quadraticCurveTo(bx + s * 10 * S, -(6 + flap * 10) * S, bx + s * 20 * S, -(2 + flap * 8) * S);
@@ -1089,64 +1158,41 @@ export class Climb {
         g.beginPath();
         g.ellipse(bx, S, 5 * S, 6 * S, 0, 0, Math.PI * 2);
         g.fill();
+        g.fillStyle = M.yellow;
+        g.fillRect(bx - 2.6 * S, -1.5 * S, 1.6 * S, 1.6 * S);
+        g.fillRect(bx + 1 * S, -1.5 * S, 1.6 * S, 1.6 * S);
       }
     }
-    g.fillStyle = this.plankFill(g, p.kind === 'bat');
-    g.strokeStyle = 'rgba(10,2,20,0.7)';
+    g.fillStyle = p.kind === 'bat' ? M.cream : this.yellowFill(g);
+    g.strokeStyle = M.black;
     g.lineWidth = 1.5;
     g.beginPath();
-    g.roundRect(-w / 2, 0, w, h, 4 * S);
+    g.roundRect(-w / 2, 0, w, h, h / 2);
     g.fill();
     g.stroke();
-    if (p.kind === 'wood') {
-      // Wood grain and a nail at each end.
-      g.strokeStyle = 'rgba(30,12,8,0.45)';
-      g.lineWidth = 1;
-      g.beginPath();
-      g.moveTo(-w * 0.35, h * 0.55);
-      g.lineTo(w * (0.1 + p.seed * 0.2), h * 0.55);
-      g.stroke();
-      g.fillStyle = 'rgba(230,220,200,0.7)';
-      for (const s of [-1, 1]) {
-        g.beginPath();
-        g.arc(s * (w / 2 - 6 * S), h * 0.45, 1.6 * S, 0, Math.PI * 2);
-        g.fill();
-      }
-      // Some planks drip green slime.
-      if (p.seed > 0.7) {
-        g.fillStyle = '#76ff03';
-        g.globalAlpha *= 0.8;
-        g.beginPath();
-        g.roundRect((p.seed - 0.85) * w * 3 - 3 * S, h - 2, 6 * S, (8 + Math.sin(this.time * 2 + p.seed * 9) * 2) * S, 3 * S);
-        g.fill();
-      }
-    }
+    // A soft highlight along the top.
+    g.strokeStyle = 'rgba(255,255,255,0.45)';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(-w / 2 + h / 2, 2.5 * S);
+    g.lineTo(w / 2 - h / 2, 2.5 * S);
+    g.stroke();
     g.restore();
     if (p.pumpkin) this.drawPumpkin(g, x, y, p.squash);
   }
 
-  /** Plank colours, made once per game (they only depend on the plank height). */
-  private plankFill(g: G, bat: boolean): CanvasGradient {
-    const cached = bat ? this.batFill : this.woodFill;
-    if (cached) return cached;
-    const grad = g.createLinearGradient(0, 0, 0, 12 * this.S);
-    const stops: [number, string][] = bat
-      ? [
-          [0, '#ffb74d'],
-          [1, '#e65100'],
-        ]
-      : [
-          [0, '#a1887f'],
-          [0.35, '#6d4c41'],
-          [1, '#3e2723'],
-        ];
-    for (const [k, c] of stops) grad.addColorStop(k, c);
-    if (bat) this.batFill = grad;
-    else this.woodFill = grad;
-    return grad;
+  /** Made once per game: it only depends on the plank height. */
+  private yellowFill(g: G): CanvasGradient {
+    if (!this.plankFill) {
+      this.plankFill = g.createLinearGradient(0, 0, 0, 12 * this.S);
+      this.plankFill.addColorStop(0, '#ffd84d');
+      this.plankFill.addColorStop(0.5, M.yellow);
+      this.plankFill.addColorStop(1, M.gold);
+    }
+    return this.plankFill;
   }
 
-  /** The trampoline: a carved pumpkin that squashes when you land on it. */
+  /** The trampoline: a yellow pumpkin with a black grin that squashes when you land on it. */
   private drawPumpkin(g: G, x: number, y: number, squash: number) {
     const S = this.S;
     const sy = 1 - squash * 0.45;
@@ -1155,8 +1201,8 @@ export class Climb {
     const ry = 12 * S * sy;
     const cy = y - ry;
     g.save();
-    g.fillStyle = '#ff7b00';
-    g.strokeStyle = '#b34700';
+    g.fillStyle = M.yellow;
+    g.strokeStyle = M.black;
     g.lineWidth = 1.5;
     for (const [dx, k] of [
       [-0.45, 0.62],
@@ -1168,9 +1214,8 @@ export class Climb {
       g.fill();
       g.stroke();
     }
-    g.fillStyle = '#2e7d32';
+    g.fillStyle = M.black;
     g.fillRect(x - 2 * S, cy - ry - 5 * S * sy, 4 * S, 6 * S * sy);
-    g.fillStyle = '#ffeb3b';
     for (const s of [-1, 1]) {
       g.beginPath();
       g.moveTo(x + s * rx * 0.2, cy - ry * 0.15);
@@ -1203,14 +1248,14 @@ export class Climb {
     g.save();
     g.translate(x, y);
     g.rotate(angle);
-    g.strokeStyle = '#8d6e63';
+    g.strokeStyle = M.cream;
     g.lineWidth = 4 * S;
     g.lineCap = 'round';
     g.beginPath();
     g.moveTo(-26 * S, 0);
     g.lineTo(20 * S, 0);
     g.stroke();
-    g.fillStyle = '#ffca28';
+    g.fillStyle = M.yellow;
     g.beginPath();
     g.moveTo(18 * S, -3 * S);
     g.lineTo(38 * S, -11 * S);
@@ -1218,7 +1263,7 @@ export class Climb {
     g.lineTo(38 * S, 11 * S);
     g.lineTo(18 * S, 3 * S);
     g.fill();
-    g.strokeStyle = '#c49000';
+    g.strokeStyle = M.gold;
     g.lineWidth = 1.2 * S;
     for (let i = -2; i <= 2; i++) {
       g.beginPath();
@@ -1226,7 +1271,7 @@ export class Climb {
       g.lineTo(38 * S, i * 4 * S);
       g.stroke();
     }
-    g.fillStyle = '#6d4c41';
+    g.fillStyle = M.black;
     g.fillRect(16 * S, -4 * S, 4 * S, 8 * S);
     g.restore();
   }
@@ -1269,7 +1314,7 @@ export class Climb {
         // Keep "+5" the right way round in right-to-left languages.
         if (/^[+\d]/.test(s.text)) g.direction = 'ltr';
         g.lineWidth = 4;
-        g.strokeStyle = 'rgba(26,11,46,0.9)';
+        g.strokeStyle = M.black;
         g.lineJoin = 'round';
         g.strokeText(s.text, x, y);
         g.fillStyle = s.color;
@@ -1286,6 +1331,7 @@ export class Climb {
     g.globalAlpha = this.fade;
   }
 
+  /** The selected Minder, in its Wardrobe hat and cape. */
   private drawMinder(g: G, sx: number) {
     const h = this.size;
     const w = h * this.aspect;
@@ -1305,10 +1351,45 @@ export class Climb {
       g.translate(0, h / 2);
     } else g.rotate(this.angle);
     g.scale(scaleX, scaleY);
-    g.shadowColor = 'rgba(0,0,0,0.45)';
+    // Costumes are drawn around the picture's centre.
+    g.translate(0, -h / 2);
+    g.shadowColor = 'rgba(0,0,0,0.5)';
     g.shadowBlur = 10;
     g.shadowOffsetY = 4;
-    g.drawImage(this.img, -w / 2, -h, w, h);
+    if (outfit.cape) drawCape(g, w, h, this.time);
+    g.drawImage(this.sprite, -w / 2, -h / 2, w, h);
+    if (outfit.hat) drawHat(g, outfit.hat, w, h);
     g.restore();
   }
+}
+
+/** A Mindera candy: yellow with black stripes, in cream wrappers (tile units, like the game's sprites). */
+function drawCandy(g: G) {
+  g.fillStyle = M.cream;
+  for (const s of [-1, 1]) {
+    g.beginPath();
+    g.moveTo(s * 0.16, 0);
+    g.lineTo(s * 0.4, -0.16);
+    g.lineTo(s * 0.36, 0);
+    g.lineTo(s * 0.4, 0.16);
+    g.closePath();
+    g.fill();
+  }
+  g.fillStyle = M.yellow;
+  g.beginPath();
+  g.arc(0, 0, 0.2, 0, Math.PI * 2);
+  g.fill();
+  g.save();
+  g.beginPath();
+  g.arc(0, 0, 0.2, 0, Math.PI * 2);
+  g.clip();
+  g.strokeStyle = M.black;
+  g.lineWidth = 0.05;
+  for (let i = -3; i <= 3; i++) {
+    g.beginPath();
+    g.moveTo(i * 0.1 - 0.2, -0.25);
+    g.lineTo(i * 0.1 + 0.2, 0.25);
+    g.stroke();
+  }
+  g.restore();
 }

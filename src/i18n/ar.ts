@@ -109,6 +109,8 @@ export const ar: Dict = {
     doors10: 'فتحت 10 أبواب مفاجآت',
     pet: 'صادقت وحشًا',
     snacks: 'جرّبت كل الوجبات الخفيفة',
+    secret: 'اكتشفت السر',
+    secretLocked: 'سرّي للغاية 🤫',
   },
   wardrobe: {
     title: 'خزانة الملابس',

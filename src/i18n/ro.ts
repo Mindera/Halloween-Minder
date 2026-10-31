@@ -109,6 +109,8 @@ export const ro: Dict = {
     doors10: '10 uși „dulce sau farsă” deschise',
     pet: 'Un prieten-monstru',
     snacks: 'Toate gustările încercate',
+    secret: 'Secret descoperit',
+    secretLocked: 'Strict secret 🤫',
   },
   wardrobe: {
     title: 'Garderobă',

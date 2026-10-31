@@ -109,6 +109,8 @@ export const hi: Dict = {
     doors10: '10 मिठाई-या-शरारत दरवाज़े खोले',
     pet: 'एक मॉन्स्टर से दोस्ती की',
     snacks: 'हर स्नैक चखा',
+    secret: 'राज़ खोज निकाला',
+    secretLocked: 'टॉप सीक्रेट 🤫',
   },
   wardrobe: {
     title: 'अलमारी',
