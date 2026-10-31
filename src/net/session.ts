@@ -255,6 +255,7 @@ export class NetSession {
     g.bombStock = s.bombStock;
     g.pelletCount = s.pelletCount;
     g.remoteQueued = s.queued;
+    g.warnings = s.warnings;
     g.scare = s.scare;
     g.reverse = s.reverse;
     g.light = s.light;

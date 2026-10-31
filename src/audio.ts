@@ -21,6 +21,7 @@ export type Sfx =
   | 'clear'
   | 'tick'
   | 'spawn'
+  | 'warn'
   | 'click'
   | 'party'
   | 'crack'
@@ -218,6 +219,11 @@ export class SoundBoard {
         break;
       case 'spawn':
         this.tone(90, 0.3, 'sine', 0.15, 60);
+        break;
+      case 'warn':
+        // "Uh-oh": a monster is about to come out.
+        this.tone(NOTE(74), 0.12, 'triangle', 0.1);
+        this.tone(NOTE(69), 0.2, 'triangle', 0.1, NOTE(67), 0.14);
         break;
       case 'click':
         this.tone(880, 0.04, 'triangle', 0.1);

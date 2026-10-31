@@ -71,6 +71,19 @@ export interface Enemy extends Mover {
   eyeHits: number;
 }
 
+/** A monster about to come out of a spawn tile: players see the warning for WARN_TIME seconds first. */
+export interface SpawnWarning {
+  /** The spawn tile. */
+  x: number;
+  y: number;
+  kind: EnemyKind;
+  /** Seconds until the monster starts rising out of the ground. */
+  left: number;
+}
+
+/** How long the warning shows before a monster comes out (it then takes another 0.9 s to rise). */
+export const WARN_TIME = 2.5;
+
 /** A tiny friendly bat or ghost that follows its minder and shoots for a while. */
 export interface Pet {
   owner: number;
@@ -268,6 +281,8 @@ export class Game {
   pelletCount = 0;
   players: Player[] = [];
   enemies: Enemy[] = [];
+  /** Monsters about to come out (they already left the queue). */
+  warnings: SpawnWarning[] = [];
   eyes: Eye[] = [];
   bombs: Bomb[] = [];
   bombStock = START_BOMBS;
@@ -360,7 +375,7 @@ export class Game {
   }
 
   get enemiesLeft() {
-    return (this.remote ? this.remoteQueued : this.queue.length) + this.enemies.length;
+    return (this.remote ? this.remoteQueued : this.queue.length + this.warnings.length) + this.enemies.length;
   }
 
   has(kind: ItemKind) {
@@ -452,6 +467,7 @@ export class Game {
     } else this.ghost = null;
     if (!this.daily) this.cb.event({ type: 'reach', level });
     this.enemies = [];
+    this.warnings = [];
     this.eyes = [];
     this.item = null;
     this.popups = [];
@@ -523,6 +539,7 @@ export class Game {
     this.doors = l.doors.map((d) => ({ x: d.x, y: d.y, open: false }));
     this.players = [];
     this.enemies = [];
+    this.warnings = [];
     this.eyes = [];
     this.bombs = [];
     this.pets = [];
@@ -611,6 +628,17 @@ export class Game {
       return;
     }
     if (this.phase !== 'play') return;
+    // The ground rumbles where a monster is about to come out, harder as it gets closer.
+    if (!this.squid || this.light === 'green') {
+      for (const w of this.warnings) {
+        const k = 1 - w.left / WARN_TIME;
+        if (Math.random() > dt * (5 + k * 20)) continue;
+        this.particles.push({
+          kind: 'debris', x: w.x + 0.5 + rand(-0.3, 0.3), y: w.y + 0.7, vx: rand(-1.2, 1.2), vy: rand(-3.5, -1.5),
+          life: 0.45, max: 0.45, color: pick(['#5d4037', '#8d6e63', '#3e2723']), size: rand(0.05, 0.09), rot: rand(0, 6),
+        });
+      }
+    }
     if (this.squid && this.light === 'green' && Math.random() < dt * 2.5) {
       // The doll is singing.
       this.particles.push({
@@ -723,11 +751,18 @@ export class Game {
     this.updateEnemies(dt);
     if (this.phase !== 'play') return;
 
-    // Spawning
+    // Spawning: a monster is announced first, and comes out WARN_TIME seconds later.
     this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0 && this.queue.length && this.enemies.length < this.diff.maxActive + (this.coop ? 2 : 0)) {
-      this.spawnEnemy(this.queue.pop()!);
+    const active = this.enemies.length + this.warnings.length;
+    if (this.spawnTimer <= 0 && this.queue.length && active < this.diff.maxActive + (this.coop ? 2 : 0)) {
+      this.warnSpawn(this.queue.pop()!);
       this.spawnTimer = this.diff.spawnEvery;
+    }
+    for (const w of [...this.warnings]) {
+      w.left -= dt;
+      if (w.left > 0) continue;
+      this.warnings.splice(this.warnings.indexOf(w), 1);
+      this.spawnEnemy(w);
     }
 
     this.updateItem(dt);
@@ -1171,18 +1206,31 @@ export class Game {
     }
   }
 
-  private spawnEnemy(kind: EnemyKind) {
+  /** Picks where the next monster comes out and shows the warning there (see `drawWarnings` in render.ts). */
+  private warnSpawn(kind: EnemyKind) {
     const m = this.maze;
     const options = m.spawns
       .map((s) => ({ s, d: this.distMap[s.y * m.w + s.x] }))
       .filter((o) => o.d < 0 || o.d >= 5);
-    const choice = options.length ? pick(options).s : m.spawns.reduce((a, b) => (this.distMap[b.y * m.w + b.x] > this.distMap[a.y * m.w + a.x] ? b : a));
-    this.addEnemy(kind, choice.x + 0.5, choice.y + 0.5, 0.9, -1);
+    // Spread out over the spawn tiles that aren't already warning, so each warning stays readable.
+    const free = options.filter((o) => !this.warnings.some((w) => w.x === o.s.x && w.y === o.s.y));
+    const pool = free.length ? free : options;
+    const choice = pool.length ? pick(pool).s : m.spawns.reduce((a, b) => (this.distMap[b.y * m.w + b.x] > this.distMap[a.y * m.w + a.x] ? b : a));
+    this.warnings.push({ x: choice.x, y: choice.y, kind, left: WARN_TIME });
     if (kind === 'cousin') {
       this.cb.toast(msg('toast.bossIn'), '#ff5252');
       this.sfx('boss');
       this.buzz('heavy');
-    } else this.sfx('spawn');
+    } else this.sfx('warn');
+  }
+
+  private spawnEnemy(w: SpawnWarning) {
+    const x = w.x + 0.5;
+    const y = w.y + 0.5;
+    this.addEnemy(w.kind, x, y, 0.9, -1);
+    this.burst(x, y + 0.2, ['#5d4037', '#8d6e63', '#3e2723', '#ff5252'], 10, 0.07, 'debris');
+    if (w.kind === 'cousin') this.buzz('heavy');
+    this.sfx('spawn');
   }
 
   private addEnemy(kind: EnemyKind, x: number, y: number, rising: number, dir: number) {

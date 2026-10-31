@@ -1,5 +1,5 @@
 import { BOSS_PHOTO, ENEMIES } from './config';
-import type { Enemy, Game, Player } from './game';
+import { WARN_TIME, type Enemy, type Game, type Player } from './game';
 import { CRATE, DIRS, WALL, type Maze } from './maze';
 import { MONSTER_ART, SpriteBank, bake, drawBomb, drawEyeball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
 import { THEMES, shape, type ThemeArt } from './themes';
@@ -463,6 +463,7 @@ export class Renderer {
     }
     this.drawItem(game);
     this.drawBombs(game);
+    this.drawWarnings(game, 'ground');
     for (const e of game.enemies) this.drawEnemy(game, e);
     this.drawUmbrellas(game);
     if (matrix) {
@@ -481,6 +482,7 @@ export class Renderer {
     for (const p of game.players) this.drawPlayer(game, p);
     this.drawPets(game);
     this.drawParticles(game);
+    this.drawWarnings(game, 'sign');
     this.drawPopups(game);
     if (game.squid) this.drawDollGaze(game);
     ctx.restore();
@@ -1102,6 +1104,111 @@ export class Renderer {
     if (e.kind === 'cousin') this.drawBossHud(e, T);
     if (e.stun > 0) this.drawDizzy(e.x * T, e.y * T - T * 0.5, game.time);
     if (e.mad > 0) this.drawDizzy(e.x * T, e.y * T - T * 0.5, game.time * 3, '#b2ff59');
+  }
+
+  /**
+   * The warning before a monster comes out of a spawn tile: the ground glows and cracks open, eyes peek out of the
+   * hole, a ring counts down, and a "!" sign bounces over the spot. Everything speeds up as the monster gets closer.
+   */
+  private drawWarnings(game: Game, layer: 'ground' | 'sign') {
+    const ctx = this.ctx;
+    const T = this.tile;
+    const TAU = Math.PI * 2;
+    for (const w of game.warnings) {
+      const k = Math.max(0, Math.min(1, 1 - w.left / WARN_TIME));
+      const boss = w.kind === 'cousin';
+      const s = boss ? 1.4 : 1;
+      const x = (w.x + 0.5) * T;
+      const y = (w.y + 0.5) * T;
+      const beat = Math.sin(game.time * (7 + k * 20));
+      if (layer === 'sign') {
+        const size = T * s * (0.3 + k * 0.08) * (1 + Math.max(0, beat) * 0.12);
+        const hop = Math.abs(Math.sin(game.time * (5 + k * 8))) * T * 0.16;
+        const sy = y - T * s * 0.72 - hop;
+        ctx.save();
+        ctx.translate(x, sy);
+        ctx.rotate(Math.sin(game.time * 14) * 0.08 * k);
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo(size * 0.95, size * 0.7);
+        ctx.lineTo(-size * 0.95, size * 0.7);
+        ctx.closePath();
+        ctx.lineWidth = Math.max(2, T * 0.07);
+        ctx.strokeStyle = '#1a0b2e';
+        ctx.stroke();
+        ctx.fillStyle = boss ? '#ff4081' : '#ffd400';
+        ctx.fill();
+        ctx.fillStyle = '#1a0b2e';
+        ctx.fillRect(-size * 0.08, -size * 0.45, size * 0.16, size * 0.68);
+        ctx.beginPath();
+        ctx.arc(0, size * 0.42, size * 0.1, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+        continue;
+      }
+      const rgb = boss ? '255,64,129' : '255,40,40';
+      // Ripples spreading out, so the spot catches the eye from anywhere on the maze.
+      for (let i = 0; i < 2; i++) {
+        const ping = (game.time * (0.9 + k * 1.6) + i * 0.5 + hash(w.x, w.y, 30)) % 1;
+        ctx.strokeStyle = `rgba(${rgb},${(1 - ping) * 0.75})`;
+        ctx.lineWidth = Math.max(1.5, T * 0.07 * (1 - ping));
+        ctx.beginPath();
+        ctx.arc(x, y, T * s * (0.5 + ping * 1.2), 0, TAU);
+        ctx.stroke();
+      }
+      // A red glow that pulses faster and faster.
+      const r = T * s * (0.5 + k * 0.25 + beat * 0.05);
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
+      glow.addColorStop(0, `rgba(${rgb},${0.35 + k * 0.4})`);
+      glow.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      // Cracks spreading out from the hole.
+      const px = x;
+      const py = y + T * 0.2 * s;
+      ctx.strokeStyle = `rgba(255,${boss ? 120 : 190},70,${0.45 + k * 0.55})`;
+      ctx.lineWidth = Math.max(1, T * 0.045);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU + hash(w.x, w.y, i) * 0.8;
+        const len = T * s * (0.12 + k * 0.38) * (0.7 + hash(w.x, w.y, i + 9) * 0.5);
+        const bend = (hash(w.x, w.y, i + 20) - 0.5) * 0.9;
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + Math.cos(a + bend) * len * 0.5, py + Math.sin(a + bend) * len * 0.25);
+        ctx.lineTo(px + Math.cos(a) * len, py + Math.sin(a) * len * 0.5);
+      }
+      ctx.stroke();
+      // The hole opens up...
+      const hw = T * s * (0.08 + k * 0.3);
+      const hh = T * s * (0.04 + k * 0.13);
+      ctx.fillStyle = '#0d0016';
+      ctx.beginPath();
+      ctx.ellipse(px, py, hw, hh, 0, 0, TAU);
+      ctx.fill();
+      // ...and something inside is looking at you.
+      if (k > 0.35 && Math.sin(game.time * 3 + w.x) > -0.85) {
+        ctx.fillStyle = boss ? '#ffd400' : '#ff1744';
+        const er = T * s * 0.045 * Math.min(1, (k - 0.35) * 4);
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.ellipse(px + side * hw * 0.35, py - hh * 0.1, er * 1.3, er, 0, 0, TAU);
+          ctx.fill();
+        }
+      }
+      // Countdown ring: it empties as the monster arrives.
+      const rr = T * s * 0.46;
+      ctx.lineWidth = Math.max(2, T * 0.07);
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.arc(x, y, rr, 0, TAU);
+      ctx.stroke();
+      ctx.strokeStyle = boss ? '#ff4081' : k > 0.7 && beat > 0 ? '#ffffff' : '#ff5252';
+      ctx.beginPath();
+      ctx.arc(x, y, rr, -Math.PI / 2, -Math.PI / 2 + (1 - k) * TAU);
+      ctx.stroke();
+    }
   }
 
   /** Name tag and a 10-segment health bar over Palos' cousin. */

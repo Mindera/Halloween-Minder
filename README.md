@@ -48,6 +48,7 @@ English, Português (Portugal), Português (Brasil), Español, Français, Român
 - Clear a level by grabbing **every IT bit** (0s, 1s, floppies, chips, bugs, USB sticks…) **and** bonking **every monster**.
 - You have **2 minutes** per level. If a monster touches you, or time runs out, it's game over.
 - Monsters get faster, smarter and more numerous each level. There are **100 levels**, and level 100 is close to impossible.
+- Monsters never appear out of nowhere: **2.5 seconds before one crawls out of a tombstone**, the ground there glows red and cracks open, red eyes peek out of the hole, ripples spread out, a countdown ring drains and a ⚠ sign bounces over the spot (with an "uh-oh" sound). Palos' cousin gets a bigger, pink warning.
 - **Level 6 is the Halloween Game**: a Squid Game playground where a giant doll plays *Red light, green light*. While she sings, run; when she turns round, everything freezes (the clock too) and anyone who touches the controls is zapped back to the start. Clear it for the 🦑 *Survived Halloween Game* sticker.
 - **Level 12 is Mindera's anniversary party**: a giant "12" maze, rainbow walls, cupcakes, a birthday cake bonus, *Happy Birthday* music and double points. Clear it for fireworks and *Happy Anniversary Mindera!*
 - **Every level has its own scenery**: Graveyard, Pumpkin Patch, Haunted House, Spooky Forest, Mad Lab, Server Room of Doom, Witch Swamp and Vampire Castle, each with its own floor, walls, background and ambient effects (fog, fireflies, falling leaves, bubbles, blinking server LEDs, embers, bats).
