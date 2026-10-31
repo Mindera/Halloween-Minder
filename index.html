@@ -44,11 +44,11 @@
       <header id="hud" hidden>
         <button id="btn-pause" class="hud-btn" aria-label="Pause">❚❚</button>
         <div class="stat"><span class="lbl" id="hud-level-label">LEVEL</span><b id="hud-level">1</b></div>
-        <div class="stat grow"><span class="lbl">SCORE</span><b id="hud-score">0</b></div>
-        <div class="stat" id="hud-time-wrap"><span class="lbl">TIME</span><b id="hud-time">2:00</b></div>
-        <div class="stat"><span class="lbl">MONSTERS</span><b id="hud-enemies">0</b></div>
-        <div class="stat"><span class="lbl">BITS</span><b id="hud-bits">0</b></div>
-        <div class="stat"><span class="lbl">BOMBS</span><b id="hud-bombs">0</b></div>
+        <div class="stat grow"><span class="lbl" data-i18n="hud.score">SCORE</span><b id="hud-score">0</b></div>
+        <div class="stat" id="hud-time-wrap"><span class="lbl" data-i18n="hud.time">TIME</span><b id="hud-time">2:00</b></div>
+        <div class="stat"><span class="lbl" data-i18n="hud.monsters">MONSTERS</span><b id="hud-enemies">0</b></div>
+        <div class="stat"><span class="lbl" data-i18n="hud.bits">BITS</span><b id="hud-bits">0</b></div>
+        <div class="stat"><span class="lbl" data-i18n="hud.bombs">BOMBS</span><b id="hud-bombs">0</b></div>
         <button id="btn-mute" class="hud-btn" aria-label="Toggle sound">🔊</button>
       </header>
 
@@ -70,7 +70,7 @@
           </div>
           <div class="buttons">
             <button class="bomb" id="bomb" aria-label="Player 1: drop a pumpkin bomb"><span class="ico"></span><span class="count" id="bomb-count">3</span></button>
-            <button class="fire" id="fire" aria-label="Player 1: shoot an eyeball"><span class="eye"></span><span class="label">FIRE</span></button>
+            <button class="fire" id="fire" aria-label="Player 1: shoot an eyeball"><span class="eye"></span><span class="label" data-i18n="hud.fire">FIRE</span></button>
           </div>
         </div>
         <div class="pad" id="pad2" hidden>
@@ -83,27 +83,32 @@
           </div>
           <div class="buttons">
             <button class="bomb" id="bomb2" aria-label="Player 2: drop a pumpkin bomb"><span class="ico"></span><span class="count" id="bomb-count2">3</span></button>
-            <button class="fire" id="fire2" aria-label="Player 2: shoot an eyeball"><span class="eye"></span><span class="label">P2 FIRE</span></button>
+            <button class="fire" id="fire2" aria-label="Player 2: shoot an eyeball"><span class="eye"></span><span class="label" data-i18n="hud.fire2">P2 FIRE</span></button>
           </div>
         </div>
       </footer>
 
-      <section class="screen" id="screen-title">
+      <section class="screen" id="screen-title" hidden>
         <div class="panel title-panel">
           <div class="floaters" aria-hidden="true"></div>
-          <h1 class="spooky">Halloween<br />Minder</h1>
-          <p class="sub">Shoot eyeballs. Bonk monsters. Grab the bits!</p>
+          <h1 class="spooky brand">Halloween<br />Minder</h1>
+          <p class="sub" data-i18n="title.sub">Shoot eyeballs. Bonk monsters. Grab the bits!</p>
           <img class="hero" id="title-minder" alt="" />
           <div class="modes">
-            <button class="btn primary mode" id="btn-arcade">ARCADE<small>100 levels of spooky fun</small></button>
-            <button class="btn mode daily" id="btn-daily">DAILY CHALLENGE<small id="daily-sub">Same maze for everyone today</small></button>
-            <button class="btn mode coop" id="btn-coop" hidden>2 PLAYERS<small>Team up on one screen</small></button>
+            <button class="btn primary mode" id="btn-arcade"><span data-i18n="title.arcade">ARCADE</span><small data-i18n="title.arcadeSub">100 levels of spooky fun</small></button>
+            <button class="btn mode daily" id="btn-daily"><span data-i18n="title.daily">DAILY CHALLENGE</span><small id="daily-sub"></small></button>
+            <button class="btn mode coop" id="btn-coop"><span data-i18n="title.coop">2 PLAYERS</span><small id="coop-sub"></small></button>
           </div>
           <div class="row">
-            <button class="btn" id="btn-help">How to play</button>
-            <button class="btn" id="btn-scores">High scores</button>
+            <button class="btn" id="btn-help" data-i18n="title.help">How to play</button>
+            <button class="btn" id="btn-scores" data-i18n="title.scores">High scores</button>
           </div>
-          <p class="best">Best: <b id="title-best">0</b></p>
+          <div class="row">
+            <button class="btn" id="btn-stickers"><span aria-hidden="true">🏅</span> <span data-i18n="title.stickers">Stickers</span></button>
+            <button class="btn" id="btn-settings"><span aria-hidden="true">⚙️</span> <span data-i18n="title.settings">Settings</span></button>
+          </div>
+          <p class="best"><span data-i18n="title.best">Best:</span> <b id="title-best">0</b></p>
+          <button class="btn lang-btn" id="btn-lang" aria-label="Language"><span aria-hidden="true">🌐</span> <span id="lang-name">English</span></button>
           <img class="logo" src="./mindera-logo.png" alt="Mindera" />
         </div>
       </section>
@@ -113,80 +118,114 @@
           <h2 class="spooky" id="select-title">Pick your Minder</h2>
           <p class="sub" id="select-sub" hidden></p>
           <div id="minder-grid" class="minder-grid"></div>
+          <div class="wardrobe">
+            <h3 data-i18n="wardrobe.title">Wardrobe</h3>
+            <div id="wardrobe" class="wardrobe-row"></div>
+          </div>
           <div class="row">
-            <button class="btn" data-back>Back</button>
-            <button class="btn primary" id="btn-go">LET'S GO!</button>
+            <button class="btn" data-back data-i18n="select.back">Back</button>
+            <button class="btn primary" id="btn-go" data-i18n="select.go">LET'S GO!</button>
           </div>
         </div>
       </section>
 
       <section class="screen" id="screen-help" hidden>
         <div class="panel wide scroll">
-          <h2 class="spooky">How to play</h2>
+          <h2 class="spooky" data-i18n="help.title">How to play</h2>
           <ul class="howto">
-            <li><b>Move</b> with the D-pad, a swipe on the maze, or the arrow keys / WASD.</li>
-            <li><b>Shoot eyeballs</b> with FIRE, a tap on the maze, or Space.</li>
-            <li>Grab every <b>IT bit</b> (0s, 1s, floppies, chips, bugs…) <b>and</b> bonk every monster to clear the level.</li>
-            <li>You have <b>2 minutes</b> per level. If a monster touches you, it's game over!</li>
-            <li>📦 <b>Crates</b> break after two eyeballs. Some rooms are sealed with crates, so you must smash your way in to grab their bits.</li>
-            <li>🌀 <b>Portals</b> teleport you (and monsters, and your eyeballs!) to the matching portal.</li>
-            <li>☂️ <b>Umbrellas</b> pop open when a monster walks by, hiding whatever is underneath. Careful!</li>
-            <li>Levels get faster and sneakier… all the way to <b>level 100</b>. Level 12 is a surprise party! 🎉</li>
-            <li>🎃 <b>Pumpkin bombs</b>: drop one with BOMB (B / E / Shift). Two seconds later it blows up crates and bonks every monster nearby. You start with 3 and get one more each level.</li>
-            <li>📅 <b>Daily Challenge</b>: three stages that are the same for everyone today, with their own high score. Come back tomorrow for new mazes!</li>
-            <li>👥 <b>2 Players</b> (tablets and computers): P1 uses WASD + Space + E, P2 uses the arrows + Enter + right Shift, or each player gets their own on-screen pad.</li>
+            <li data-i18n-html="help.move"></li>
+            <li data-i18n-html="help.shoot"></li>
+            <li data-i18n-html="help.goal"></li>
+            <li data-i18n-html="help.timer"></li>
+            <li data-i18n-html="help.crates"></li>
+            <li data-i18n-html="help.portals"></li>
+            <li data-i18n-html="help.umbrellas"></li>
+            <li data-i18n-html="help.levels"></li>
+            <li data-i18n-html="help.bombs"></li>
+            <li data-i18n-html="help.daily"></li>
+            <li data-i18n-html="help.coop"></li>
+            <li data-i18n-html="help.doors"></li>
+            <li data-i18n-html="help.pets"></li>
+            <li data-i18n-html="help.unlocks"></li>
+            <li data-i18n-html="help.ghost"></li>
           </ul>
-          <h3>Snacks &amp; surprises (10 seconds each)</h3>
+          <h3 data-i18n="help.itemsTitle">Snacks &amp; surprises (10 seconds each)</h3>
           <div id="item-legend" class="legend"></div>
-          <h3>Monsters</h3>
+          <h3 data-i18n="help.monstersTitle">Monsters</h3>
           <div id="monster-legend" class="legend"></div>
-          <button class="btn primary" data-back>Got it!</button>
+          <button class="btn primary" data-back data-i18n="help.gotIt">Got it!</button>
         </div>
       </section>
 
       <section class="screen" id="screen-scores" hidden>
         <div class="panel scroll">
-          <h2 class="spooky">High scores</h2>
-          <h3>Arcade</h3>
+          <h2 class="spooky" data-i18n="scores.title">High scores</h2>
+          <h3 data-i18n="scores.arcade">Arcade</h3>
           <ol id="score-list" class="scores"></ol>
-          <h3>Daily Challenge</h3>
+          <h3 data-i18n="scores.daily">Daily Challenge</h3>
           <ol id="daily-list" class="scores"></ol>
-          <button class="btn primary" data-back>Back</button>
+          <button class="btn primary" data-back data-i18n="scores.back">Back</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-lang" hidden>
+        <div class="panel scroll">
+          <h2 class="spooky" data-i18n="language.title">Language</h2>
+          <div id="lang-list" class="lang-list"></div>
+          <button class="btn primary" data-back data-i18n="scores.back">Back</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-settings" hidden>
+        <div class="panel scroll">
+          <h2 class="spooky" data-i18n="settings.title">Settings</h2>
+          <div id="settings-list" class="settings-list"></div>
+          <button class="btn primary" id="btn-settings-back" data-i18n="scores.back">Back</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-stickers" hidden>
+        <div class="panel wide scroll">
+          <h2 class="spooky" data-i18n="stickers.title">Sticker book</h2>
+          <p class="sub" id="stickers-count"></p>
+          <div id="sticker-grid" class="sticker-grid"></div>
+          <button class="btn primary" data-back data-i18n="scores.back">Back</button>
         </div>
       </section>
 
       <section class="screen" id="screen-pause" hidden>
         <div class="panel">
-          <h2 class="spooky">Paused</h2>
-          <button class="btn primary" id="btn-resume">Resume</button>
-          <button class="btn" id="btn-quit">Quit to menu</button>
+          <h2 class="spooky" data-i18n="pause.title">Paused</h2>
+          <button class="btn primary" id="btn-resume" data-i18n="pause.resume">Resume</button>
+          <button class="btn" id="btn-pause-settings"><span aria-hidden="true">⚙️</span> <span data-i18n="title.settings">Settings</span></button>
+          <button class="btn" id="btn-quit" data-i18n="pause.quit">Quit to menu</button>
         </div>
       </section>
 
       <section class="screen" id="screen-over" hidden>
         <div class="panel over-panel scroll">
-          <h2 class="greeting">Happy Halloween.<br /><span>With love, Mindera</span></h2>
+          <h2 class="greeting"><span data-i18n="over.greeting1">Happy Halloween.</span><br /><span class="love" data-i18n="over.greeting2">With love, Mindera</span></h2>
           <p id="over-headline" class="headline">GAME OVER</p>
           <p id="over-reason" class="reason"></p>
           <div class="over-minders"><img id="over-minder" class="hero small" alt="" /><img id="over-minder2" class="hero small" alt="" hidden /></div>
           <div class="score-card">
-            <div><span class="lbl">SCORE</span><b id="over-score">0</b></div>
+            <div><span class="lbl" data-i18n="over.score">SCORE</span><b id="over-score">0</b></div>
             <div><span class="lbl" id="over-level-label">LEVEL</span><b id="over-level">1</b></div>
             <div><span class="lbl" id="over-best-label">HIGH SCORE</span><b id="over-best">0</b></div>
           </div>
           <p id="over-new" class="new-best" hidden>🎉 NEW HIGH SCORE! 🎉</p>
-          <button class="btn share" id="btn-share">📣 Share my score</button>
+          <button class="btn share" id="btn-share" data-i18n="over.share">📣 Share my score</button>
           <div id="share-fallback" class="share-fallback" hidden>
             <a id="share-whatsapp" target="_blank" rel="noopener">WhatsApp</a>
             <a id="share-x" target="_blank" rel="noopener">X / Twitter</a>
             <a id="share-facebook" target="_blank" rel="noopener">Facebook</a>
             <a id="share-linkedin" target="_blank" rel="noopener">LinkedIn</a>
-            <button id="share-copy" type="button">Copy text</button>
-            <a id="share-download" download="halloween-minder-score.png">Save image</a>
+            <button id="share-copy" type="button" data-i18n="over.copy">Copy text</button>
+            <a id="share-download" download="halloween-minder-score.png" data-i18n="over.save">Save image</a>
           </div>
           <div class="row">
-            <button class="btn primary" id="btn-again">Play again</button>
-            <button class="btn" id="btn-change">Change Minder</button>
+            <button class="btn primary" id="btn-again" data-i18n="over.again">Play again</button>
+            <button class="btn" id="btn-change" data-i18n="over.change">Change Minder</button>
           </div>
           <img class="logo" src="./mindera-logo.png" alt="Mindera" />
         </div>

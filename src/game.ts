@@ -9,7 +9,6 @@ import {
   EFFECT_TIME,
   ENEMIES,
   ITEMS,
-  KILL_WORDS,
   LEVEL_TIME,
   MAX_BOMBS,
   MAX_LEVEL,
@@ -27,8 +26,10 @@ import {
   type ThemeId,
 } from './config';
 import { buzz } from './feedback';
+import { t, ta } from './i18n';
 import type { Input, Pad } from './input';
 import { CRATE, DIRS, OPEN, bfsFrom, generateAnniversaryMaze, generateMaze, isWall, makeRng, opposite, type Maze } from './maze';
+import { settings, type GameEvent, type GhostRun } from './progress';
 import { PARTY_PELLET_KINDS, PELLET_KINDS } from './sprites';
 
 export interface Mover {
@@ -66,6 +67,33 @@ export interface Enemy extends Mover {
   wobble: number;
   walk: number;
   face: number;
+  /** Damage taken from anything but bombs (for the "beat the boss with only bombs" sticker). */
+  eyeHits: number;
+}
+
+/** A tiny friendly bat or ghost that follows its minder and shoots for a while. */
+export interface Pet {
+  owner: number;
+  kind: 'bat' | 'ghost';
+  x: number;
+  y: number;
+  life: number;
+  cooldown: number;
+}
+
+export interface PetShot {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  owner: number;
+}
+
+export interface Door {
+  x: number;
+  y: number;
+  open: boolean;
 }
 
 export interface Eye {
@@ -132,6 +160,8 @@ export interface GameCallbacks {
   levelClear(level: number, bonus: number): void;
   gameOver(reason: string): void;
   victory(): void;
+  /** Progress events for stats, stickers and costume unlocks. */
+  event(e: GameEvent): void;
 }
 
 export interface StartOptions {
@@ -158,6 +188,10 @@ const CONFETTI = ['#ffd400', '#ff4081', '#40c4ff', '#69f0ae', '#ff9100', '#e040f
 const CRATE_HP = 2;
 /** Palos' cousin loses this many hit points to a bomb (everything else is bonked outright). */
 const BOMB_BOSS_DAMAGE = 3;
+const PET_CHANCE = 0.1;
+const PET_LIFE = 15;
+/** The daily ghost is sampled every 0.1 s: x*20, y*20, face. */
+const GHOST_STEP = 0.1;
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(arr: readonly T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -198,6 +232,20 @@ export class Game {
   links!: Int32Array;
   /** Seconds of screen shake left (bombs). */
   shake = 0;
+  doors: Door[] = [];
+  pets: Pet[] = [];
+  petShots: PetShot[] = [];
+  /** Jump-scare ghost on screen (seconds left). */
+  scare = 0;
+  /** Reversed controls from a trick (seconds left). */
+  reverse = 0;
+  /** Seconds of play in the current level/stage (drives the daily ghost). */
+  stageClock = 0;
+  /** This run's recording, one sample list per daily stage. */
+  recording: number[][] = [];
+  /** Best run of the day to race against (Daily Challenge, single player). */
+  ghostRun: GhostRun | null = null;
+  ghost: number[] | null = null;
 
   private diff!: Difficulty;
   private queue: EnemyKind[] = [];
@@ -217,6 +265,7 @@ export class Game {
   private scramble = [0, 1, 2, 3];
   private scrambleTimer = 0;
   private seed = Math.floor(Math.random() * 1e9);
+  private recordTimer = 0;
   /** Level-content randomness: seeded in the Daily Challenge so everyone gets the same monsters and items. */
   private rnd: () => number = Math.random;
 
@@ -258,6 +307,7 @@ export class Game {
     this.lastItem = null;
     this.bombStock = START_BOMBS - 1;
     this.players = [];
+    this.recording = [];
     if (this.daily) {
       this.day = dailyKey();
       this.seed = dailySeed(this.day);
@@ -293,6 +343,7 @@ export class Game {
         if (isWall(m, x, y)) continue;
         if (x === m.start.x && y === m.start.y) continue;
         if (this.links[y * w + x] >= 0) continue;
+        if (m.doors.some((d) => d.x === x && d.y === y)) continue;
         if (m.spawns.some((s) => s.x === x && s.y === y)) continue;
         this.pellets[y * w + x] = Math.floor(rng() * kinds);
         this.pelletCount++;
@@ -322,6 +373,18 @@ export class Game {
     }));
     this.bombStock = Math.min(MAX_BOMBS, this.bombStock + 1);
     this.bombs = [];
+    this.doors = m.doors.map((d) => ({ x: d.x, y: d.y, open: false }));
+    this.pets = [];
+    this.petShots = [];
+    this.scare = 0;
+    this.reverse = 0;
+    this.stageClock = 0;
+    this.recordTimer = 0;
+    if (this.daily && !this.coop) {
+      this.recording[this.stage] = [];
+      this.ghost = this.ghostRun?.stages[this.stage] ?? null;
+    } else this.ghost = null;
+    if (!this.daily) this.cb.event({ type: 'reach', level });
     this.enemies = [];
     this.eyes = [];
     this.item = null;
@@ -407,7 +470,10 @@ export class Game {
 
   private nextLevel() {
     if (this.daily) {
-      if (this.stage >= DAILY_STAGES.length - 1) return this.win();
+      if (this.stage >= DAILY_STAGES.length - 1) {
+        this.cb.event({ type: 'dailyClear' });
+        return this.win();
+      }
       this.stage++;
       return this.startLevel(DAILY_STAGES[this.stage]);
     }
@@ -442,13 +508,24 @@ export class Game {
 
   private updatePlay(dt: number) {
     this.timeLeft -= dt;
+    this.stageClock += dt;
+    this.scare = Math.max(0, this.scare - dt);
+    this.reverse = Math.max(0, this.reverse - dt);
+    if (this.recording[this.stage] && this.daily && !this.coop) {
+      this.recordTimer -= dt;
+      while (this.recordTimer <= 0) {
+        const p = this.players[0];
+        this.recording[this.stage].push(Math.round(p.x * 20), Math.round(p.y * 20), p.face);
+        this.recordTimer += GHOST_STEP;
+      }
+    }
     if (this.timeLeft <= 10 && Math.ceil(this.timeLeft) !== this.lastTick) {
       this.lastTick = Math.ceil(this.timeLeft);
       this.sfx('tick');
     }
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
-      this.die("Time's up! The monsters threw a party without you.", null);
+      this.die(t('over.timeUp'), null);
       return;
     }
 
@@ -465,6 +542,7 @@ export class Game {
     for (const p of this.alivePlayers()) this.updatePlayer(p, this.input.pads[p.id], dt);
     this.updateEyes(dt);
     this.updateBombs(dt);
+    this.updatePets(dt);
 
     // Distance map for chasing monsters: distance to the nearest minder.
     const alive = this.alivePlayers();
@@ -504,11 +582,11 @@ export class Game {
 
     if (this.pelletCount === 0 && this.enemiesLeft > 0 && !this.hintedPellets) {
       this.hintedPellets = true;
-      this.cb.toast('All bits collected! Now bonk the monsters!', '#69f0ae');
+      this.cb.toast(t('toast.allBits'), '#69f0ae');
     }
     if (this.enemiesLeft === 0 && this.pelletCount > 0 && !this.hintedEnemies) {
       this.hintedEnemies = true;
-      this.cb.toast('Monsters gone! Grab the last bits!', '#69f0ae');
+      this.cb.toast(t('toast.monstersGone'), '#69f0ae');
     }
     if (this.pelletCount === 0 && this.enemiesLeft === 0) this.levelClear();
   }
@@ -516,13 +594,18 @@ export class Game {
   private updatePlayer(p: Player, pad: Pad, dt: number) {
     p.invuln = Math.max(0, p.invuln - dt);
     p.recoil = Math.max(0, p.recoil - dt * 6);
-    if (pad.dir >= 0) p.next = this.has('roach') ? this.scramble[pad.dir] : pad.dir;
+    if (pad.dir >= 0) {
+      let d = this.has('roach') ? this.scramble[pad.dir] : pad.dir;
+      if (this.reverse > 0) d = opposite(d);
+      p.next = d;
+    }
     if (p.dir >= 0 && p.next === opposite(p.dir)) p.dir = p.next;
     const speed = PLAYER_SPEED * (this.has('spice') ? 1.55 : 1) * (this.has('pig') ? 0.8 : 1);
     const before = p.x + p.y;
     this.advance(p, speed * dt, () => this.playerDecide(p));
     if (p.x + p.y !== before) p.walk += dt * speed;
     this.eatPellet(p);
+    this.checkDoor(p);
 
     p.cooldown -= dt;
     const fire = pad.consumeFire();
@@ -620,6 +703,7 @@ export class Game {
     if (this.players.includes(m as Player)) {
       this.sfx('warp');
       this.distFrom = '';
+      this.cb.event({ type: 'teleport' });
     }
   }
 
@@ -691,7 +775,7 @@ export class Game {
           if (en.rising > 0) continue;
           const r = fatHit * (en.kind === 'minipumpkin' ? 0.8 : en.kind === 'cousin' ? 1.5 : 1);
           if (Math.abs(en.x - e.x) < r && Math.abs(en.y - e.y) < r) {
-            this.hitEnemy(en);
+            this.hitEnemy(en, 'eye', e.owner);
             return false;
           }
         }
@@ -706,16 +790,17 @@ export class Game {
     this.crateHp[i] = force ? 0 : Math.max(0, this.crateHp[i] - 1);
     if (this.crateHp[i] > 0) {
       this.sfx('crack');
-      this.popup(x + 0.5, y + 0.2, 'CRACK!', '#ffcc80', 0.3);
+      this.popup(x + 0.5, y + 0.2, t('pop.crack'), '#ffcc80', 0.3);
       return;
     }
     m.walls[i] = OPEN;
     this.distFrom = '';
     this.addScore(25);
+    this.cb.event({ type: 'crate' });
     if (!force) {
       this.sfx('crunch');
       buzz('light');
-      this.popup(x + 0.5, y + 0.2, pick(['SMASH!', 'KRAK!', 'BOOM!', 'Ctrl+X!']), '#ffb74d', 0.38);
+      this.popup(x + 0.5, y + 0.2, pick(ta('pop.smash')), '#ffb74d', 0.38);
     }
     for (let k = 0; k < 12; k++) {
       this.particles.push({
@@ -731,7 +816,7 @@ export class Game {
     const x = Math.floor(p.x) + 0.5;
     const y = Math.floor(p.y) + 0.5;
     if (this.bombStock <= 0) {
-      this.popup(p.x, p.y - 0.6, 'No bombs!', '#ff8a80', 0.3);
+      this.popup(p.x, p.y - 0.6, t('pop.noBombs'), '#ff8a80', 0.3);
       return;
     }
     if (this.bombs.length >= 3 || this.bombs.some((b) => b.x === x && b.y === y)) return;
@@ -758,7 +843,7 @@ export class Game {
     this.sfx('boom');
     buzz('heavy');
     this.shake = 0.45;
-    this.popup(b.x, b.y - 0.5, pick(['KABOOM!', 'PUMPKIN POW!', 'SQUASH!']), '#ff9100', 0.55);
+    this.popup(b.x, b.y - 0.5, pick(ta('pop.kaboom')), '#ff9100', 0.55);
     this.particles.push({ kind: 'shock', x: b.x, y: b.y, vx: 0, vy: 0, life: 0.45, max: 0.45, color: '#ffb74d', size: BOMB_RADIUS, rot: 0 });
     this.burst(b.x, b.y, ['#ff3d00', '#ff9100', '#ffea00', '#ff8c1a'], 26, 0.16, 'dot');
     const r = Math.ceil(BOMB_RADIUS);
@@ -769,41 +854,142 @@ export class Game {
         if (Math.hypot(x + 0.5 - b.x, y + 0.5 - b.y) <= BOMB_RADIUS) this.hitCrate(x, y, true);
       }
     }
+    let blastKills = 0;
     for (const e of [...this.enemies]) {
       if (Math.hypot(e.x - b.x, e.y - b.y) > BOMB_RADIUS + 0.25) continue;
       if (e.kind === 'cousin') {
         e.hp -= BOMB_BOSS_DAMAGE;
         e.flash = 0.3;
         if (e.hp > 0) {
-          this.popup(e.x, e.y - 0.9, 'My hair!', '#ffeb3b', 0.35);
+          this.popup(e.x, e.y - 0.9, t('pop.bossBomb'), '#ffeb3b', 0.35);
           continue;
         }
       }
       e.rising = 0;
-      this.killEnemy(e, 'KABOOM!');
+      this.killEnemy(e, ta('pop.kaboom')[0], 'bomb');
+      blastKills++;
     }
+    if (blastKills) this.cb.event({ type: 'blast', kills: blastKills });
     // Chain reaction.
     for (const other of this.bombs) if (Math.hypot(other.x - b.x, other.y - b.y) <= BOMB_RADIUS) other.fuse = Math.min(other.fuse, 0.12);
     for (const p of this.alivePlayers()) {
-      if (Math.hypot(p.x - b.x, p.y - b.y) <= BOMB_RADIUS) this.popup(p.x, p.y - 0.8, 'Phew!', '#b2ff59', 0.3);
+      if (Math.hypot(p.x - b.x, p.y - b.y) <= BOMB_RADIUS) this.popup(p.x, p.y - 0.8, t('pop.phew'), '#b2ff59', 0.3);
     }
+  }
+
+  // ------------------------------------------------------------ trick-or-treat doors
+
+  private checkDoor(p: Player) {
+    const tx = Math.floor(p.x);
+    const ty = Math.floor(p.y);
+    if (Math.abs(p.x - tx - 0.5) > 0.3 || Math.abs(p.y - ty - 0.5) > 0.3) return;
+    const door = this.doors.find((d) => !d.open && d.x === tx && d.y === ty);
+    if (!door) return;
+    door.open = true;
+    this.cb.event({ type: 'door' });
+    const x = tx + 0.5;
+    const y = ty + 0.5;
+    const r = this.rnd();
+    if (r < 0.3) {
+      const pts = [250, 500, 750][Math.floor(this.rnd() * 3)];
+      this.addScore(pts);
+      this.popup(x, y - 0.5, `${t('pop.treat')} +${pts}`, '#ffd54f', 0.45);
+      this.burst(x, y, ['#ffd54f', '#ff8a65', '#fff'], 16, 0.08, 'star');
+      this.sfx('candy');
+    } else if (r < 0.6) {
+      this.popup(x, y - 0.9, t('pop.treat'), '#ffd54f', 0.45);
+      this.applyItem(this.nextItem(), x, y);
+    } else if (r < 0.8) {
+      this.scare = 1.1;
+      this.popup(x, y - 0.5, t('pop.trick'), '#ce93d8', 0.45);
+      this.sfx('boo');
+      buzz('heavy');
+    } else {
+      this.reverse = 3;
+      this.popup(x, y - 0.5, t('pop.trick'), '#ce93d8', 0.45);
+      this.cb.toast(t('toast.reverse'), '#ce93d8');
+      this.sfx('glitch');
+    }
+  }
+
+  // ------------------------------------------------------------ pets
+
+  private spawnPet(owner: number, x: number, y: number, kind: 'bat' | 'ghost') {
+    if (this.pets.some((p) => p.owner === owner)) return;
+    this.pets.push({ owner, kind, x, y, life: PET_LIFE, cooldown: 0.6 });
+    this.popup(x, y - 0.6, t('pop.pet'), '#f48fb1', 0.4);
+    this.burst(x, y, ['#f48fb1', '#fff', '#ce93d8'], 12, 0.07, 'star');
+    this.sfx('appear');
+    this.cb.event({ type: 'pet' });
+  }
+
+  private updatePets(dt: number) {
+    for (const pet of [...this.pets]) {
+      pet.life -= dt;
+      const owner = this.players[pet.owner]?.alive ? this.players[pet.owner] : this.nearestPlayer(pet.x, pet.y);
+      if (pet.life <= 0 || !owner) {
+        this.pets.splice(this.pets.indexOf(pet), 1);
+        this.burst(pet.x, pet.y, ['#f48fb1', '#fff'], 10, 0.06, 'star');
+        this.popup(pet.x, pet.y - 0.4, t('pop.petBye'), '#f48fb1', 0.3);
+        continue;
+      }
+      // Hover just behind the minder.
+      const f = DIRS[owner.face];
+      const tx = owner.x - f.x * 0.75 + Math.sin(this.time * 3 + pet.owner) * 0.15;
+      const ty = owner.y - f.y * 0.75 - 0.45 + Math.cos(this.time * 4) * 0.1;
+      const k = Math.min(1, dt * 6);
+      pet.x += (tx - pet.x) * k;
+      pet.y += (ty - pet.y) * k;
+      pet.cooldown -= dt;
+      if (pet.cooldown > 0) continue;
+      let target: Enemy | null = null;
+      let best = 5;
+      for (const e of this.enemies) {
+        if (e.rising > 0) continue;
+        const d = Math.hypot(e.x - pet.x, e.y - pet.y);
+        if (d < best) {
+          best = d;
+          target = e;
+        }
+      }
+      if (!target) continue;
+      const len = best || 1;
+      this.petShots.push({ x: pet.x, y: pet.y, vx: ((target.x - pet.x) / len) * 9, vy: ((target.y - pet.y) / len) * 9, life: 0.8, owner: pet.owner });
+      pet.cooldown = 0.75;
+    }
+    // Pet shots are a bit magic: they fly over walls.
+    this.petShots = this.petShots.filter((s) => {
+      s.life -= dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      if (s.life <= 0) return false;
+      for (const e of this.enemies) {
+        if (e.rising > 0) continue;
+        if (Math.abs(e.x - s.x) < 0.45 && Math.abs(e.y - s.y) < 0.45) {
+          this.hitEnemy(e, 'pet', s.owner);
+          return false;
+        }
+      }
+      return true;
+    });
   }
 
   // ------------------------------------------------------------ monsters
 
-  private hitEnemy(e: Enemy) {
+  private hitEnemy(e: Enemy, by: 'eye' | 'pet', owner: number) {
     e.hp--;
+    e.eyeHits++;
     e.flash = 0.15;
     if (e.hp > 0) {
       this.sfx('hit');
-      const word = e.kind === 'cousin' ? pick(['Hey!', 'Rude!', "I'm telling Palos!", 'My polo!', 'Not the glasses!']) : 'OUCH!';
+      const word = e.kind === 'cousin' ? pick(ta('pop.bossHit')) : t('pop.ouch');
       this.popup(e.x, e.y - (e.kind === 'cousin' ? 0.9 : 0.4), word, '#ffeb3b', 0.35);
       return;
     }
-    this.killEnemy(e, pick(KILL_WORDS));
+    this.killEnemy(e, pick(ta('killWords')), by, owner);
   }
 
-  private killEnemy(e: Enemy, word: string) {
+  private killEnemy(e: Enemy, word: string, by: 'eye' | 'bomb' | 'pet' | 'other' = 'other', owner = -1) {
     const idx = this.enemies.indexOf(e);
     if (idx < 0) return;
     this.enemies.splice(idx, 1);
@@ -814,20 +1000,27 @@ export class Game {
     this.burst(e.x, e.y, SPLAT[e.kind], 16, 0.1);
     this.sfx('kill');
     buzz('light');
+    this.cb.event({ type: 'kill', kind: e.kind, by });
+    if (e.kind === 'cousin') this.cb.event({ type: 'boss', onlyBombs: by === 'bomb' && e.eyeHits === 0 });
+    // Sometimes a defeated monster turns into a tiny friendly pet.
+    if (e.kind !== 'cousin' && by !== 'other' && Math.random() < PET_CHANCE) {
+      const near = owner >= 0 ? this.players[owner] : this.nearestPlayer(e.x, e.y);
+      if (near?.alive) this.spawnPet(near.id, e.x, e.y, e.kind === 'ghost' || e.kind === 'bat' ? e.kind : pick(['bat', 'ghost'] as const));
+    }
     if (e.kind === 'cousin') {
       this.confetti(70);
       this.burst(e.x, e.y, ['#4fc3f7', '#f1c27d', '#ffd400'], 30, 0.14, 'star');
       if (this.enemiesLeft === 0) this.hintedEnemies = true;
-      this.cb.toast(`You beat Palos' cousin! Ultimate boss defeated!${this.enemiesLeft === 0 && this.pelletCount > 0 ? ' Now grab the last bits!' : ''}`, '#ffd400');
+      this.cb.toast(t(this.enemiesLeft === 0 && this.pelletCount > 0 ? 'toast.bossOutBits' : 'toast.bossOut'), '#ffd400');
       buzz('heavy');
     }
     if (e.kind === 'pumpkin' && this.level >= 5) {
       for (const s of [-1, 1]) this.addEnemy('minipumpkin', e.x, e.y, 0, s > 0 ? e.dir : opposite(e.dir));
-      this.popup(e.x, e.y + 0.2, 'Pumpkin split!', '#ff9800', 0.32);
+      this.popup(e.x, e.y + 0.2, t('pop.split'), '#ff9800', 0.32);
     }
     if (e.kind === 'vampire') {
       for (let i = 0; i < 2; i++) this.addEnemy('bat', e.x, e.y, 0, i ? e.dir : opposite(e.dir));
-      this.popup(e.x, e.y + 0.2, 'Bats! Bats everywhere!', '#ce93d8', 0.32);
+      this.popup(e.x, e.y + 0.2, t('pop.bats'), '#ce93d8', 0.32);
     }
   }
 
@@ -839,7 +1032,7 @@ export class Game {
     const choice = options.length ? pick(options).s : m.spawns.reduce((a, b) => (this.distMap[b.y * m.w + b.x] > this.distMap[a.y * m.w + a.x] ? b : a));
     this.addEnemy(kind, choice.x + 0.5, choice.y + 0.5, 0.9, -1);
     if (kind === 'cousin') {
-      this.cb.toast("BOSS! Palos' cousin has entered the maze! (10 eyeballs)", '#ff5252');
+      this.cb.toast(t('toast.bossIn'), '#ff5252');
       this.sfx('boss');
       buzz('heavy');
     } else this.sfx('spawn');
@@ -864,12 +1057,13 @@ export class Game {
       wobble: Math.random() * 10,
       walk: 0,
       face: 1,
+      eyeHits: 0,
     });
   }
 
   private enemySpeed(e: Enemy) {
     const base = ENEMIES[e.kind].speed * this.diff.speedMul * (this.party ? 0.9 : 1);
-    return Math.min(7.5, base) * (this.has('eclair') ? 0.55 : 1);
+    return Math.min(7.5, base) * (this.has('eclair') ? 0.55 : 1) * (settings.slow ? 0.6 : 1);
   }
 
   private updateEnemies(dt: number) {
@@ -885,12 +1079,12 @@ export class Game {
       const near = this.nearestPlayer(e.x, e.y);
       if (cricket && e.mad <= 0 && e.kind !== 'cousin' && Math.hypot(e.x - near.x, e.y - near.y) < 3.5) {
         e.mad = 0.9;
-        this.popup(e.x, e.y - 0.4, pick(['?!', 'AAAH!', 'TOO LOUD!', 'MY EARS!']), '#b2ff59', 0.3);
+        this.popup(e.x, e.y - 0.4, pick(ta('pop.mad')), '#b2ff59', 0.3);
       }
       if (e.mad > 0) {
         e.mad -= dt;
         e.wobble += dt * 40;
-        if (e.mad <= 0) this.killEnemy(e, 'BONKERS!');
+        if (e.mad <= 0) this.killEnemy(e, t('pop.bonkers'));
         continue;
       }
       if (e.stun > 0) {
@@ -910,17 +1104,17 @@ export class Game {
         if (frozen && e.kind === 'cousin') {
           // Even a Blue Screen can't delete Palos' cousin: you have to shoot him.
         } else if (frozen) {
-          this.killEnemy(e, 'Ctrl+Alt+Del!');
+          this.killEnemy(e, t('pop.ctrlAltDel'));
         } else if (e.stun > 0) {
           // Dizzy monsters are harmless.
         } else if (this.has('pig')) {
           e.stun = 2.5;
           e.dir = opposite(e.dir);
-          this.popup(e.x, e.y - 0.4, 'BOING!', '#f48fb1', 0.4);
+          this.popup(e.x, e.y - 0.4, t('pop.boing'), '#f48fb1', 0.4);
           this.sfx('boing');
           this.addScore(50);
         } else if (p.invuln <= 0) {
-          this.knockOut(p, ENEMIES[e.kind].deathLine, e.kind);
+          this.knockOut(p, t(`monsters.${e.kind}.death`), e.kind);
           if (this.phase !== 'play') return;
         }
         break;
@@ -936,8 +1130,8 @@ export class Game {
       this.emote(p, 'cry');
       this.sfx('cry');
       buzz('error');
-      this.popup(p.x, p.y - 0.7, `P${p.id + 1} is out!`, '#ff8a80', 0.4);
-      this.cb.toast(`Player ${p.id + 1} got caught! Keep going, Player ${2 - p.id}: they're back next level.`, '#ff8a80');
+      this.popup(p.x, p.y - 0.7, t('pop.out', { n: p.id + 1 }), '#ff8a80', 0.4);
+      this.cb.toast(t('toast.playerOut', { n: p.id + 1, other: 2 - p.id }), '#ff8a80');
       this.distFrom = '';
       return;
     }
@@ -1110,7 +1304,7 @@ export class Game {
       if (opener) {
         u.open = rand(6, 9);
         this.sfx('umbrella');
-        this.popup(u.x, u.y - 0.9, pick(['Hide and seek!', "Can't see me!", 'Peekaboo!', 'Shhh...']), '#ce93d8', 0.3);
+        this.popup(u.x, u.y - 0.9, pick(ta('pop.umbrella')), '#ce93d8', 0.3);
       }
     }
   }
@@ -1123,9 +1317,9 @@ export class Game {
       this.cb.toast(text, '#80deea');
       return true;
     };
-    if (m.walls.some((v) => v === CRATE) && hint('crate', 'Tip: shoot the crates, or drop a pumpkin bomb!')) return;
-    if (m.portals.length && hint('portal', 'Tip: step into a swirly portal to teleport!')) return;
-    if (m.umbrellas.length) hint('umbrella', 'Watch out! Monsters open umbrellas to hide under them!');
+    if (m.walls.some((v) => v === CRATE) && hint('crate', t('toast.hintCrate'))) return;
+    if (m.portals.length && hint('portal', t('toast.hintPortal'))) return;
+    if (m.umbrellas.length) hint('umbrella', t('toast.hintUmbrella'));
   }
 
   private launchRocket() {
@@ -1138,8 +1332,7 @@ export class Game {
   }
 
   private applyItem(kind: ItemKind, x: number, y: number) {
-    const def = ITEMS[kind];
-    this.cb.toast(def.toast, kind === 'beer' ? '#ffcc80' : '#fff59d');
+    this.cb.toast(t(`items.${kind}.toast`), kind === 'beer' ? '#ffcc80' : '#fff59d');
     this.burst(x, y, ['#fff59d', '#ffffff', '#ffd54f'], 14, 0.08, 'star');
     buzz('medium');
     const sounds: Record<ItemKind, Sfx> = {
@@ -1147,6 +1340,7 @@ export class Game {
       roach: 'glitch', rabbit: 'matrix', bomb: 'fuse', candy: 'candy', cake: 'candy',
     };
     this.sfx(sounds[kind]);
+    this.cb.event({ type: 'item', kind });
     if (kind === 'candy') {
       this.addScore(1000);
       this.popup(x, y - 0.3, '+1000', '#ffd54f', 0.5);
@@ -1154,20 +1348,20 @@ export class Game {
     }
     if (kind === 'cake') {
       this.addScore(1200);
-      this.popup(x, y - 0.3, 'HAPPY 12TH! +1200', '#ffd400', 0.5);
+      this.popup(x, y - 0.3, t('pop.cake'), '#ffd400', 0.5);
       this.confetti(80);
       return;
     }
     if (kind === 'bomb') {
       this.bombStock = Math.min(MAX_BOMBS, this.bombStock + 2);
-      this.popup(x, y - 0.3, '+2 BOMBS', '#ff9100', 0.45);
+      this.popup(x, y - 0.3, t('pop.plusBombs'), '#ff9100', 0.45);
       return;
     }
     this.effects.set(kind, EFFECT_TIME);
     if (kind === 'computer') this.popup(x, y - 0.4, ':(', '#82b1ff', 0.6);
     if (kind === 'roach') {
       this.reshuffleControls();
-      this.popup(x, y - 0.4, 'BUG FOUND!', '#69f0ae', 0.45);
+      this.popup(x, y - 0.4, t('pop.bugFound'), '#69f0ae', 0.45);
     }
   }
 
@@ -1202,6 +1396,7 @@ export class Game {
     this.eyes = [];
     this.bombs = [];
     for (const p of this.alivePlayers()) this.emote(p, 'cheer');
+    this.cb.event({ type: 'clear', level: this.level, timeLeft: this.timeLeft, party: this.party, coop: this.coop });
     this.sfx('clear');
     buzz('medium');
     this.confetti(60);

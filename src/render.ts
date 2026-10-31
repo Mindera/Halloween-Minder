@@ -3,6 +3,8 @@ import type { Enemy, Game, Player } from './game';
 import { CRATE, DIRS, WALL, type Maze } from './maze';
 import { MONSTER_ART, SpriteBank, bake, drawBomb, drawEyeball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
 import { THEMES, type ThemeArt } from './themes';
+import { isRtl, t as tr, uiFont } from './i18n';
+import { outfit, settings } from './progress';
 
 const PLAYER_TAGS = ['#ffd400', '#18ffff'];
 
@@ -19,6 +21,8 @@ interface MinderArt extends MinderLook {
 
 const RAINBOW = ['#ff4081', '#ffd400', '#69f0ae', '#40c4ff', '#e040fb'];
 const PORTAL_COLORS = ['#18ffff', '#ea80fc'];
+/** Okabe-Ito colours, distinguishable with the common colour-vision deficiencies. */
+const PORTAL_COLORS_CB = ['#0072B2', '#E69F00'];
 const MATRIX_GLYPHS = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄ0123456789Z:.=*+-<>';
 const MATRIX: ThemeArt = {
   sky: ['#000'],
@@ -30,7 +34,7 @@ const MATRIX: ThemeArt = {
   ambientColor: '0,255,65',
   scenery: () => {},
 };
-const ERRORS = ['Ups, we found a bug!', 'undefined is not a function', '404', 'NaN', 'Segmentation fault', 'NullPointerException', 'it works on my machine', ':(){ :|:& };:', 'Error: monster.exe'];
+const ERRORS = ['', 'undefined is not a function', '404', 'NaN', 'Segmentation fault', 'NullPointerException', 'it works on my machine', ':(){ :|:& };:', 'Error: monster.exe'];
 
 /** Stable pseudo-random number per tile, so decorations don't flicker between rebuilds. */
 const hash = (x: number, y: number, salt = 0) => {
@@ -129,6 +133,74 @@ export interface Rect {
   h: number;
 }
 
+/** Costumes are drawn in the minder's own coordinates (w × h picture centred on 0,0). */
+function drawHat(g: CanvasRenderingContext2D, hat: 'witchHat' | 'partyHat', w: number, h: number) {
+  const top = -h / 2;
+  if (hat === 'witchHat') {
+    g.fillStyle = '#2a1145';
+    g.beginPath();
+    g.ellipse(0, top + h * 0.06, w * 0.48, h * 0.07, 0, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.moveTo(-w * 0.26, top + h * 0.05);
+    g.lineTo(w * 0.26, top + h * 0.05);
+    g.quadraticCurveTo(w * 0.05, top - h * 0.25, -w * 0.18, top - h * 0.42);
+    g.quadraticCurveTo(-w * 0.12, top - h * 0.15, -w * 0.26, top + h * 0.05);
+    g.fill();
+    g.fillStyle = '#ff9800';
+    g.fillRect(-w * 0.24, top - h * 0.02, w * 0.48, h * 0.06);
+    g.fillStyle = '#ffd54f';
+    g.fillRect(-w * 0.04, top - h * 0.025, w * 0.08, h * 0.07);
+  } else {
+    const colors = ['#ff4081', '#40c4ff', '#ffd400'];
+    g.save();
+    g.beginPath();
+    g.moveTo(-w * 0.2, top + h * 0.08);
+    g.lineTo(w * 0.2, top + h * 0.08);
+    g.lineTo(w * 0.02, top - h * 0.36);
+    g.closePath();
+    g.clip();
+    for (let i = 0; i < 6; i++) {
+      g.fillStyle = colors[i % 3];
+      g.fillRect(-w * 0.3, top - h * 0.38 + i * h * 0.08, w * 0.6, h * 0.08);
+    }
+    g.restore();
+    g.fillStyle = '#fff';
+    g.beginPath();
+    g.arc(w * 0.02, top - h * 0.37, w * 0.07, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+function drawCape(g: CanvasRenderingContext2D, w: number, h: number, t: number) {
+  const sway = Math.sin(t * 5) * w * 0.05;
+  g.fillStyle = '#14081f';
+  g.beginPath();
+  g.moveTo(-w * 0.32, -h * 0.05);
+  g.lineTo(w * 0.32, -h * 0.05);
+  g.lineTo(w * 0.52 + sway, h * 0.5);
+  g.lineTo(-w * 0.52 + sway, h * 0.5);
+  g.closePath();
+  g.fill();
+  g.fillStyle = '#b3123a';
+  g.beginPath();
+  g.moveTo(-w * 0.26, -h * 0.02);
+  g.lineTo(w * 0.26, -h * 0.02);
+  g.lineTo(w * 0.42 + sway, h * 0.47);
+  g.lineTo(-w * 0.42 + sway, h * 0.47);
+  g.closePath();
+  g.fill();
+  g.fillStyle = '#14081f';
+  g.beginPath();
+  g.moveTo(-w * 0.34, -h * 0.08);
+  g.lineTo(-w * 0.52, -h * 0.3);
+  g.lineTo(-w * 0.18, -h * 0.02);
+  g.moveTo(w * 0.34, -h * 0.08);
+  g.lineTo(w * 0.52, -h * 0.3);
+  g.lineTo(w * 0.18, -h * 0.02);
+  g.fill();
+}
+
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -155,6 +227,7 @@ export class Renderer {
   private minders: MinderArt[] = [];
   private bombSprites: Sprite[] = [];
   private bossPhoto?: HTMLImageElement;
+  private ghostImg?: HTMLImageElement;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -163,6 +236,10 @@ export class Renderer {
       img.onload = () => (this.bossPhoto = img);
       img.src = `${import.meta.env.BASE_URL}${BOSS_PHOTO}`;
     }
+  }
+
+  setGhostImage(img: HTMLImageElement | undefined) {
+    this.ghostImg = img;
   }
 
   /** One look per player (images must already be loaded). */
@@ -232,6 +309,7 @@ export class Renderer {
     }
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.direction = isRtl() ? 'rtl' : 'ltr';
     if (matrix) {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, this.cw, this.ch);
@@ -252,6 +330,7 @@ export class Renderer {
     ctx.translate(this.ox, this.oy);
 
     this.drawPortals(game);
+    this.drawDoors(game);
     this.drawCrates(game);
     if (matrix) {
       this.drawMatrixPellets(game);
@@ -276,7 +355,9 @@ export class Renderer {
       drawEyeball(ctx, e.x * T, e.y * T, T * 0.21, d.x, d.y, this.minders[e.owner]?.iris ?? '#3a7bd5', e.spin);
     }
     this.drawCricketWaves(game);
+    this.drawGhostRunner(game);
     for (const p of game.players) this.drawPlayer(game, p);
+    this.drawPets(game);
     this.drawParticles(game);
     this.drawPopups(game);
     ctx.restore();
@@ -291,6 +372,7 @@ export class Renderer {
       ctx.fillRect(0, 0, this.cw, this.ch);
     }
     if (game.has('roach')) this.glitch(game.time);
+    if (game.scare > 0) this.drawScare(game.scare);
   }
 
   // ------------------------------------------------------------ static layers
@@ -437,7 +519,7 @@ export class Renderer {
     const ctx = this.ctx;
     const T = this.tile;
     game.maze.portals.forEach((pair, k) => {
-      const color = PORTAL_COLORS[k % PORTAL_COLORS.length];
+      const color = (settings.colorBlind ? PORTAL_COLORS_CB : PORTAL_COLORS)[k % PORTAL_COLORS.length];
       pair.forEach((pt, end) => {
         const x = (pt.x + 0.5) * T;
         const y = (pt.y + 0.5) * T;
@@ -455,6 +537,22 @@ export class Renderer {
           ctx.lineWidth = T * (0.07 - j * 0.015);
           ctx.beginPath();
           ctx.arc(x, y, T * (0.14 + j * 0.11), rot + j * 2, rot + j * 2 + 3.6);
+          ctx.stroke();
+        }
+        if (settings.colorBlind) {
+          // A shape per pair, so colour isn't the only clue.
+          ctx.fillStyle = '#fff';
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = T * 0.04;
+          ctx.beginPath();
+          if (k % 2 === 0) ctx.arc(x, y, T * 0.12, 0, Math.PI * 2);
+          else {
+            ctx.moveTo(x, y - T * 0.14);
+            ctx.lineTo(x + T * 0.13, y + T * 0.1);
+            ctx.lineTo(x - T * 0.13, y + T * 0.1);
+            ctx.closePath();
+          }
+          ctx.fill();
           ctx.stroke();
         }
       });
@@ -692,7 +790,7 @@ export class Renderer {
         const r1 = hash(tick, i, 5);
         const r2 = hash(tick, i, 6);
         ctx.fillStyle = i ? '#ff1744' : '#69f0ae';
-        ctx.fillText(ERRORS[Math.floor(hash(tick, i, 7) * ERRORS.length)], r1 * W * 0.5, 40 + r2 * (H - 80));
+        ctx.fillText(ERRORS[Math.floor(hash(tick, i, 7) * ERRORS.length)] || tr('pop.bugMessage'), r1 * W * 0.5, 40 + r2 * (H - 80));
       }
     }
   }
@@ -720,11 +818,24 @@ export class Renderer {
     const x = it.x * T;
     const y = it.y * T + Math.sin(game.time * 4) * T * 0.08;
     const ring = (game.time * 1.5) % 1;
-    ctx.strokeStyle = `rgba(255,240,150,${1 - ring})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y, T * (0.4 + ring * 0.4), 0, Math.PI * 2);
-    ctx.stroke();
+    if (settings.colorBlind) {
+      // High-contrast double ring that doesn't rely on colour.
+      for (const [c, wdt] of [['#000', 5], ['#fff', 2.5]] as const) {
+        ctx.strokeStyle = c;
+        ctx.lineWidth = wdt;
+        ctx.setLineDash([T * 0.12, T * 0.08]);
+        ctx.beginPath();
+        ctx.arc(x, y, T * 0.55, game.time, game.time + Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = `rgba(255,240,150,${1 - ring})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, T * (0.4 + ring * 0.4), 0, Math.PI * 2);
+      ctx.stroke();
+    }
     const frames = this.bank.items.get(it.kind)!;
     this.sprite(frames[Math.floor(game.time * 3) % 2], x, y, 1.15);
   }
@@ -806,14 +917,15 @@ export class Renderer {
       ctx.fillStyle = i < e.hp ? (e.hp <= 3 ? '#ff5252' : '#69f0ae') : 'rgba(255,255,255,0.15)';
       ctx.fillRect(x - w / 2 + (i * w) / max + 1, y, w / max - 2, T * 0.16);
     }
-    ctx.font = `bold ${Math.max(10, Math.round(T * 0.32))}px Fredoka, sans-serif`;
+    ctx.font = `bold ${Math.max(10, Math.round(T * 0.32))}px ${uiFont()}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = Math.max(2, T * 0.08);
     ctx.strokeStyle = '#1a0b2e';
-    ctx.strokeText("Palos' cousin", x, y - 3);
+    const name = tr('pop.bossName');
+    ctx.strokeText(name, x, y - 3);
     ctx.fillStyle = '#ffd400';
-    ctx.fillText("Palos' cousin", x, y - 3);
+    ctx.fillText(name, x, y - 3);
     ctx.textBaseline = 'middle';
   }
 
@@ -925,7 +1037,9 @@ export class Renderer {
     }
     const flip = p.face === 3 ? -1 : 1;
     ctx.scale(sx * flip, sy);
+    if (outfit.cape) drawCape(ctx, w, h, game.time + p.id);
     ctx.drawImage(spice ? art.red : img, -w / 2, -h / 2, w, h);
+    if (outfit.hat) drawHat(ctx, outfit.hat, w, h);
     ctx.shadowBlur = 0;
     if (pig) {
       ctx.fillStyle = '#f48fb1';
@@ -959,12 +1073,13 @@ export class Renderer {
     }
     ctx.restore();
     if (p.emote !== 'none' && t < 1.6) {
-      const text = p.emote === 'cheer' ? (p.id ? 'WOOHOO!' : 'YAY!') : 'WAAAH!';
+      const text = p.emote === 'cheer' ? tr(p.id ? 'pop.woohoo' : 'pop.yay') : tr('pop.waah');
       this.bubble(p.x * T, p.y * T - T * 1.05, text, p.emote === 'cheer' ? '#ffd400' : '#81d4fa');
     }
+    if (game.reverse > 0 && p.alive) this.bubble(p.x * T, p.y * T - T * 1.05, '⇄', '#ce93d8');
     if (game.coop && p.alive && p.emote === 'none') {
       const tag = `P${p.id + 1}`;
-      ctx.font = `bold ${Math.max(9, Math.round(T * 0.32))}px Fredoka, sans-serif`;
+      ctx.font = `bold ${Math.max(9, Math.round(T * 0.32))}px ${uiFont()}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.lineWidth = Math.max(2, T * 0.08);
@@ -975,10 +1090,143 @@ export class Renderer {
     }
   }
 
+  private drawDoors(game: Game) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    for (const d of game.doors) {
+      const x = d.x * T;
+      const y = d.y * T;
+      ctx.save();
+      ctx.translate(x + T / 2, y + T / 2);
+      if (d.open) {
+        ctx.fillStyle = '#120618';
+        ctx.beginPath();
+        ctx.roundRect(-T * 0.32, -T * 0.4, T * 0.64, T * 0.8, [T * 0.3, T * 0.3, 2, 2]);
+        ctx.fill();
+        ctx.strokeStyle = '#6d4c41';
+        ctx.lineWidth = T * 0.06;
+        ctx.stroke();
+      } else {
+        const glow = 0.5 + Math.sin(game.time * 3 + d.x) * 0.25;
+        ctx.shadowColor = `rgba(255,170,0,${glow})`;
+        ctx.shadowBlur = T * 0.4;
+        ctx.fillStyle = '#7b3fa0';
+        ctx.beginPath();
+        ctx.roundRect(-T * 0.32, -T * 0.4, T * 0.64, T * 0.8, [T * 0.3, T * 0.3, 2, 2]);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ff9800';
+        ctx.lineWidth = T * 0.05;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -T * 0.32);
+        ctx.lineTo(0, T * 0.38);
+        ctx.stroke();
+        ctx.fillStyle = '#ffd54f';
+        ctx.beginPath();
+        ctx.arc(T * 0.16, T * 0.05, T * 0.05, 0, Math.PI * 2);
+        ctx.arc(-T * 0.16, T * 0.05, T * 0.05, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `bold ${Math.round(T * 0.28)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🎃', 0, -T * 0.15);
+      }
+      ctx.restore();
+    }
+  }
+
+  private drawPets(game: Game) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    for (const s of game.petShots) {
+      ctx.fillStyle = '#ff80ab';
+      ctx.font = `bold ${Math.round(T * 0.32)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('♥', s.x * T, s.y * T);
+    }
+    for (const pet of game.pets) {
+      if (pet.life < 2 && Math.floor(pet.life * 8) % 2 === 0) continue;
+      const art = MONSTER_ART[pet.kind];
+      const sprite = this.bank.monsters.get(`${pet.kind}${Math.floor(game.time * 6) % 2}`);
+      if (!sprite) continue;
+      const k = 0.55;
+      ctx.save();
+      ctx.translate(pet.x * T, pet.y * T);
+      ctx.scale(k, k);
+      this.sprite(sprite, 0, 0);
+      const target = game.enemies[0];
+      const lx = target ? target.x - pet.x : 1;
+      const ly = target ? target.y - pet.y : 0;
+      for (const e of art.eyes) drawGooglyEye(ctx, e.x * T * art.scale, e.y * T * art.scale, e.r * T * art.scale, lx, ly, game.time * 3);
+      ctx.restore();
+      ctx.fillStyle = '#ff4081';
+      ctx.font = `bold ${Math.round(T * 0.26)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('♥', pet.x * T, pet.y * T - T * 0.42);
+    }
+  }
+
+  /** The Daily Challenge "ghost": your best run of the day, replayed see-through. */
+  private drawGhostRunner(game: Game) {
+    const data = game.ghost;
+    const img = this.ghostImg;
+    if (!data || !img || !img.complete || game.phase === 'intro') return;
+    const i = Math.min(Math.floor(game.stageClock / 0.1), data.length / 3 - 1) * 3;
+    if (i < 0) return;
+    const ctx = this.ctx;
+    const T = this.tile;
+    const x = (data[i] / 20) * T;
+    const y = (data[i + 1] / 20) * T;
+    const h = T * 1.12;
+    const w = (h * img.naturalWidth) / img.naturalHeight;
+    ctx.save();
+    ctx.globalAlpha = 0.38;
+    ctx.translate(x, y + Math.sin(game.time * 4) * T * 0.04);
+    ctx.scale(data[i + 2] === 3 ? -1 : 1, 1);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.font = `bold ${Math.max(9, Math.round(T * 0.28))}px ${uiFont()}`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e1f5fe';
+    ctx.fillText(`👻 ${tr('pop.ghostBest')}`, x, y - T * 0.75);
+    ctx.restore();
+  }
+
+  /** Trick door jump-scare: a big (friendly) ghost pops out. */
+  private drawScare(left: number) {
+    const ctx = this.ctx;
+    const k = 1 - left / 1.1;
+    const size = Math.min(this.cw, this.ch) * (0.45 + k * 0.35);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, left * 2);
+    ctx.fillStyle = 'rgba(10,0,20,0.55)';
+    ctx.fillRect(0, 0, this.cw, this.ch);
+    ctx.translate(this.cw / 2, this.ch / 2);
+    ctx.scale(size, size);
+    MONSTER_ART.ghost.draw(ctx, Math.floor(left * 10) % 2);
+    for (const e of MONSTER_ART.ghost.eyes) drawGooglyEye(ctx, e.x, e.y, e.r * 1.2, Math.sin(left * 20), 0.2, left * 30);
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, left * 2);
+    ctx.font = `bold ${Math.round(size * 0.3)}px ${uiFont()}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#1a0b2e';
+    ctx.strokeText(tr('pop.boo'), this.cw / 2, this.ch / 2 + size * 0.55);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(tr('pop.boo'), this.cw / 2, this.ch / 2 + size * 0.55);
+    ctx.restore();
+  }
+
   private bubble(x: number, y: number, text: string, color: string) {
     const ctx = this.ctx;
     const T = this.tile;
-    ctx.font = `bold ${Math.max(10, Math.round(T * 0.36))}px Fredoka, sans-serif`;
+    ctx.font = `bold ${Math.max(10, Math.round(T * 0.36))}px ${uiFont()}`;
     const w = ctx.measureText(text).width + T * 0.4;
     const h = T * 0.5;
     ctx.fillStyle = '#fff';
@@ -1097,7 +1345,7 @@ export class Renderer {
       const a = Math.min(1, t.life * 2);
       const pop = 1 + Math.max(0, t.life - 0.9) * 3;
       ctx.globalAlpha = a;
-      ctx.font = `bold ${Math.round(t.size * T * pop)}px Fredoka, sans-serif`;
+      ctx.font = `bold ${Math.round(t.size * T * pop)}px ${uiFont()}`;
       ctx.strokeStyle = '#1a0b2e';
       ctx.lineWidth = Math.max(2, T * 0.1);
       ctx.strokeText(t.text, t.x * T, t.y * T);

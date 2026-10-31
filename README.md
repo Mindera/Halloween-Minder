@@ -13,6 +13,26 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 - **Daily Challenge**: three stages (difficulty of levels 4, 7 and 10, the last one with the boss) on a fixed 15×21 maze. Everyone in the world gets exactly the same mazes, theme, monster order and items on the same UTC day. It has its own best score per day.
 - **2 Players** (tablets and computers, screens at least 600px on the short side): co-op with two Minders and a shared team score. On touch screens each player gets their own pad (P1 left, P2 right). On a keyboard, P1 uses WASD + Space (fire) + E (bomb) and P2 uses the arrows + Enter (fire) + right Shift (bomb). If one player gets caught, the other keeps playing and the caught player comes back next level.
 
+## Extras
+
+- **Costumes**: reaching levels 10, 25 and 50 in Arcade unlocks a witch hat, a party hat and a vampire cape. Every Minder can wear them, picked from the Wardrobe on the Minder picker.
+- **Sticker book** (🏅 on the title screen): 18 Halloween stickers for feats like *Smashed 100 crates*, *Beat Palos' cousin with only bombs* or *Caught the White Rabbit 5 times*, with progress counters.
+- 🚪 **Trick-or-treat doors** (1–3 per level): a treat (points or a random snack) or a trick (a harmless jump-scare ghost, or reversed controls for 3 seconds).
+- 🦇 **Monster pets**: a bonked monster sometimes (10%) turns into a tiny friendly bat or ghost that follows its Minder and shoots hearts at monsters for 15 seconds.
+- 👻 **Daily ghost**: your best Daily Challenge run of the day is recorded, and next time a see-through ghost Minder replays it so you can race yourself.
+- ⚙️ **Settings** (title screen or pause): slow mode (monsters at 60% speed), bigger buttons, colour-blind mode (Okabe-Ito colours plus ●/▲ shapes for portals, high-contrast rings for items) and no scary sounds.
+
+Settings, costumes, stats, stickers and the daily ghost are stored on the device (`localStorage`, see `src/progress.ts`).
+
+## Languages
+
+English, Português (Portugal), Português (Brasil), Español, Français, Română, العربية (Arabic, right-to-left), हिन्दी (Hindi) and Tiếng Việt. The game picks the device language the first time and remembers a choice made with the 🌐 button on the title screen.
+
+- Strings live in `src/i18n/`: `en.ts` is the source and defines the `Dict` type, so a translation that misses a key fails the build. Other languages are loaded on demand as separate chunks.
+- `{name}` placeholders are filled at runtime; strings shown with `data-i18n-html` may use `<b>` and `<br>`.
+- Fonts: Fredoka and Creepster for Latin scripts, Baloo 2 for Hindi and Vietnamese, Baloo Bhaijaan 2 for Arabic. They use `unicode-range`, so each player only downloads the fonts their language needs.
+- To add a language: copy `en.ts`, translate it, and register it in `LANGS` and `LOADERS` in `src/i18n/index.ts`.
+
 ## How to play
 
 | | Touch | Keyboard |

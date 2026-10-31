@@ -18,6 +18,8 @@ export interface Maze {
   /** Teleport pairs. */
   portals: [Point, Point][];
   umbrellas: Point[];
+  /** Trick-or-treat doors. */
+  doors: Point[];
 }
 
 export interface MazeFeatures {
@@ -31,6 +33,7 @@ export interface MazeFeatures {
   vaults: number;
   portals: number;
   umbrellas: number;
+  doors: number;
 }
 
 export const DIRS: Point[] = [
@@ -131,7 +134,7 @@ export function generateMaze(w: number, h: number, rng: Rng, f: MazeFeatures): M
     for (let y = cy - 1; y <= cy + 1; y++) for (let x = Math.floor(mid) - 1; x <= Math.ceil(mid) + 1; x++) walls[y * w + x] = OPEN;
   }
 
-  return addFeatures(finish({ w, h, walls, spawns: [], start: { x: 0, y: 0 }, portals: [], umbrellas: [] }), rng, f);
+  return addFeatures(finish({ w, h, walls, spawns: [], start: { x: 0, y: 0 }, portals: [], umbrellas: [], doors: [] }), rng, f);
 }
 
 const GLYPHS: Record<string, string[]> = {
@@ -178,7 +181,7 @@ export function generateAnniversaryMaze(w: number, h: number, rng: Rng, f: MazeF
       if (rng() < 0.25) walls[y * w + x] = WALL;
     }
   }
-  return addFeatures(finish({ w, h, walls, spawns: [], start: { x: 0, y: 0 }, portals: [], umbrellas: [] }), rng, {
+  return addFeatures(finish({ w, h, walls, spawns: [], start: { x: 0, y: 0 }, portals: [], umbrellas: [], doors: [] }), rng, {
     ...f,
     crates: 0,
     vaults: 0,
@@ -343,6 +346,17 @@ function addFeatures(m: Maze, rng: Rng, f: MazeFeatures): Maze {
     if (!ok.length) break;
     const i = ok[Math.floor(rng() * ok.length)];
     m.umbrellas.push(pt(i));
+    reserved.add(i);
+  }
+
+  // Trick-or-treat doors, spread around the maze.
+  const doorSpots = candidates().filter((i) => fromStart[i] >= 4);
+  for (let d = 0; d < f.doors && doorSpots.length; d++) {
+    const ok = doorSpots.filter((i) => [...m.doors, ...m.umbrellas].every((o) => Math.abs(o.x - (i % w)) + Math.abs(o.y - Math.floor(i / w)) >= 4));
+    if (!ok.length) break;
+    const i = ok[Math.floor(rng() * ok.length)];
+    m.doors.push(pt(i));
+    reserved.add(i);
   }
   return m;
 }

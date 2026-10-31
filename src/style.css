@@ -1,14 +1,4 @@
-@font-face {
-  font-family: 'Creepster';
-  src: url('./assets/fonts/creepster.woff2') format('woff2');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Fredoka';
-  src: url('./assets/fonts/fredoka.woff2') format('woff2');
-  font-weight: 300 700;
-  font-display: swap;
-}
+@import './assets/fonts/fonts.css';
 
 :root {
   --bg: #1a0b2e;
@@ -35,11 +25,13 @@
 
 html,
 body {
+  /* No double-tap zoom anywhere (iOS ignores user-scalable=no); pinch-zoom still works in menus. */
+  touch-action: manipulation;
   margin: 0;
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Fredoka', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Fredoka', 'Baloo 2', 'Baloo Bhaijaan 2', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-user-select: none;
@@ -191,7 +183,8 @@ button {
   transition:
     opacity 0.25s,
     transform 0.25s;
-  z-index: 3;
+  /* Above the menu screens too (e.g. the "needs a bigger screen" note on the title). */
+  z-index: 20;
 }
 #toast.show {
   opacity: 1;
@@ -788,9 +781,9 @@ h3 {
 
 /* help */
 .howto {
-  text-align: left;
+  text-align: start;
   margin: 0;
-  padding-left: 20px;
+  padding-inline-start: 20px;
   line-height: 1.45;
 }
 .legend {
@@ -803,7 +796,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  text-align: left;
+  text-align: start;
   padding: 6px 8px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.06);
@@ -847,7 +840,7 @@ h3 {
   object-fit: contain;
 }
 .scores b {
-  margin-left: auto;
+  margin-inline-start: auto;
   color: var(--yellow);
 }
 
@@ -861,7 +854,7 @@ h3 {
   color: var(--orange);
   text-shadow: 0 0 18px rgba(255, 123, 0, 0.7);
 }
-.greeting span {
+.greeting .love {
   color: var(--yellow);
   font-size: 0.8em;
   white-space: nowrap;
@@ -1082,4 +1075,255 @@ h3 {
 }
 #banner img.cheering {
   animation: cheer 0.45s infinite alternate cubic-bezier(0.3, 0, 0.4, 1);
+}
+
+/* ------------------------------------------------------------- languages */
+
+/* Vietnamese, Hindi and Arabic use a rounded font that has their letters; the drippy Creepster only covers basic Latin. */
+html:lang(vi) body,
+html:lang(hi) body {
+  font-family: 'Baloo 2', system-ui, sans-serif;
+}
+html:lang(ar) body {
+  font-family: 'Baloo Bhaijaan 2', system-ui, sans-serif;
+}
+html:lang(vi) .spooky:not(.brand),
+html:lang(hi) .spooky:not(.brand),
+html:lang(ar) .spooky:not(.brand),
+html:lang(vi) #banner .big,
+html:lang(hi) #banner .big,
+html:lang(ar) #banner .big,
+html:lang(vi) .greeting,
+html:lang(hi) .greeting,
+html:lang(ar) .greeting {
+  font-family: inherit;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+html:lang(hi) #banner .big,
+html:lang(ar) #banner .big,
+html:lang(vi) #banner .big {
+  font-size: clamp(36px, 11vw, 76px);
+  line-height: 1.15;
+}
+
+/* Right-to-left (Arabic): text flows RTL, but the maze and the pads keep their physical layout (P1 on the left). */
+html[dir='rtl'] #stage,
+html[dir='rtl'] #controls {
+  direction: ltr;
+}
+html[dir='rtl'] #toast,
+html[dir='rtl'] #banner {
+  direction: rtl;
+}
+
+.lang-btn {
+  min-height: 40px;
+  padding: 6px 16px;
+  font-size: 15px;
+}
+.lang-list {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.lang-list button {
+  min-height: 48px;
+  border-radius: 14px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  background: rgba(91, 42, 134, 0.4);
+  font-weight: 700;
+  font-size: 17px;
+}
+.lang-list button[lang='ar'] {
+  font-family: 'Baloo Bhaijaan 2', sans-serif;
+}
+.lang-list button[lang='hi'],
+.lang-list button[lang='vi'] {
+  font-family: 'Baloo 2', sans-serif;
+}
+.lang-list button.selected {
+  border-color: var(--yellow);
+  background: rgba(255, 212, 0, 0.16);
+}
+
+/* 2 Players on a phone: visible but disabled-looking; tapping explains why. */
+.btn.coop.unavailable {
+  filter: grayscale(0.85);
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------- wardrobe, stickers, settings */
+
+.wardrobe {
+  width: 100%;
+}
+.wardrobe h3 {
+  margin: 0 0 6px;
+}
+.wardrobe-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.wardrobe-row button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 78px;
+  padding: 6px 8px;
+  border-radius: 14px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  background: rgba(91, 42, 134, 0.4);
+  font-weight: 700;
+  font-size: 12px;
+}
+.wardrobe-row button .ico {
+  font-size: 26px;
+  line-height: 1;
+}
+.wardrobe-row button.on {
+  border-color: var(--yellow);
+  background: rgba(255, 212, 0, 0.16);
+}
+.wardrobe-row button.locked {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
+.sticker-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 14px;
+  padding: 6px;
+}
+.sticker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.sticker .face {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 40px;
+  background: radial-gradient(circle at 35% 30%, #fff8e1, #ffd54f 60%, #ff9800);
+  border: 5px solid #fff;
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(0, 0, 0, 0.25);
+  transform: rotate(var(--tilt, -4deg));
+}
+.sticker.locked .face {
+  background: rgba(255, 255, 255, 0.08);
+  border: 3px dashed rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+.sticker small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.settings-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  text-align: start;
+}
+.setting span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+}
+.setting small {
+  color: var(--muted);
+  font-weight: 500;
+}
+.setting b {
+  min-width: 52px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.15);
+}
+.setting[aria-checked='true'] {
+  border-color: var(--green);
+}
+.setting[aria-checked='true'] b {
+  background: var(--green);
+  color: #1a0b2e;
+}
+
+/* Bigger on-screen controls (accessibility). */
+#app.big-buttons .dpad {
+  --s: clamp(160px, 46vw, 220px);
+}
+#app.big-buttons .fire {
+  --s: clamp(116px, 33vw, 170px);
+}
+#app.big-buttons .bomb {
+  --s: clamp(70px, 19vw, 96px);
+}
+#app.big-buttons .hud-btn {
+  width: 46px;
+  height: 46px;
+  flex-basis: 46px;
+}
+#app.coop.big-buttons .dpad {
+  --s: clamp(130px, 20vw, 190px);
+}
+#app.coop.big-buttons .fire {
+  --s: clamp(90px, 13vw, 130px);
+}
+#app.landscape.big-buttons .dpad {
+  --s: clamp(140px, 40vh, 200px);
+}
+#app.landscape.big-buttons .fire {
+  --s: clamp(100px, 30vh, 150px);
+}
+/* Bigger buttons on a phone in portrait: stack BOMB above FIRE so everything fits the width. */
+#app.big-buttons:not(.coop):not(.landscape) .pad .buttons {
+  flex-direction: column;
+  gap: 6px;
+}
+/* The title screen has grown: keep it fitting on shorter phones (iPhone SE and friends). */
+@media (max-height: 780px) {
+  .title-panel .hero {
+    width: 70px;
+  }
+  .title-panel h1.spooky {
+    font-size: clamp(40px, 12vw, 60px);
+  }
+  .title-panel {
+    gap: 8px;
+  }
+  .title-panel .logo {
+    width: 96px;
+  }
 }

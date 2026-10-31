@@ -5,18 +5,34 @@ import {
   DAILY_STAGES,
   ENEMIES,
   ITEMS,
-  LEVEL_QUIPS,
   LEVEL_TIME,
   MINDERS,
-  THEME_NAMES,
   dailyKey,
   type EnemyKind,
   type ItemKind,
   type MinderDef,
 } from './config';
 import { Game } from './game';
+import { LANGS, detectLang, getLang, setLang, t, ta, type Lang } from './i18n';
 import { Input } from './input';
 import { pickDims } from './maze';
+import {
+  COSTUMES,
+  STICKERS,
+  flush,
+  hasSticker,
+  isUnlocked,
+  loadGhost,
+  outfit,
+  record,
+  saveGhost,
+  saveOutfit,
+  saveSettings,
+  settings,
+  stats,
+  type GameEvent,
+  type Settings,
+} from './progress';
 import { Renderer, type Rect } from './render';
 import { buildCard, fallbackLinks, shareScore, type ShareInfo } from './share';
 import { ITEM_ART, MONSTER_ART, bake, drawGooglyEye } from './sprites';
@@ -27,26 +43,13 @@ const minderSrc = (id: string) => `${import.meta.env.BASE_URL}minders/${id}.png`
 const isTouch = () => window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 /** Co-op needs room for two people: tablets and computers. */
 const bigScreen = () => Math.min(window.innerWidth, window.innerHeight) >= 600;
-const SCREENS = ['screen-title', 'screen-select', 'screen-help', 'screen-scores', 'screen-pause', 'screen-over'];
+const SCREENS = ['screen-title', 'screen-select', 'screen-help', 'screen-scores', 'screen-lang', 'screen-settings', 'screen-stickers', 'screen-pause', 'screen-over'];
+const minderName = (id: string) => t(`minders.${id}.name`);
 const P2_KEY = 'hm.minder2';
 
 type State = 'menu' | 'playing' | 'paused' | 'over';
 type Mode = 'arcade' | 'daily' | 'coop';
 
-const ITEM_HELP: Record<ItemKind, string> = {
-  cricket: 'Chirp chirp! Monsters near you go bonkers and pop.',
-  spice: 'You turn red hot and run super fast.',
-  pig: 'You get FAT. Slower, but monsters bounce off your belly!',
-  eclair: 'Every monster gets fat and slow. Easy target!',
-  beer: 'Root beer! The screen gets wobbly and blurry. Hic!',
-  computer: 'Blue Screen of Death! Monsters freeze — touch them to delete.',
-  coffee: 'Rapid-fire eyeballs!',
-  roach: 'Ups, we found a bug! The game glitches and the controls get mixed up.',
-  rabbit: 'It runs away! Catch it to enter the Matrix.',
-  bomb: '+2 pumpkin bombs. Drop them with BOMB to blow up crates and monsters.',
-  candy: '+1000 sweet points.',
-  cake: 'Only at the level 12 party. +1200!',
-};
 
 class App {
   private appEl = $('app');
@@ -69,6 +72,8 @@ class App {
   private last = 0;
   private hud = new Map<string, string>();
   private toastTimer = 0;
+  private toastQueue: { text: string; color: string }[] = [];
+  private settingsFrom = 'screen-title';
   private bannerTimer = 0;
   private partyTimer = 0;
   private effectKey = '';
@@ -85,10 +90,10 @@ class App {
       {
         toast: (t, c) => this.toast(t, c),
         levelIntro: (l) => this.onLevelIntro(l),
+        event: (e) => this.onEvent(e),
         levelClear: (l, b) => this.onLevelClear(l, b),
         gameOver: (r) => this.onGameOver(r, false),
-        victory: () =>
-          this.onGameOver(this.game.daily ? "You cleared today's Daily Challenge!" : 'You beat all 100 levels. The monsters surrender!', true),
+        victory: () => this.onGameOver(t(this.game.daily ? 'over.wonDaily' : 'over.wonArcade'), true),
       },
       () => pickDims(this.field.w, this.field.h),
     );
@@ -105,12 +110,12 @@ class App {
     this.input.onPause = () => (this.state === 'playing' ? this.pause() : this.state === 'paused' ? this.resume() : undefined);
     this.input.onMute = () => this.toggleMute();
     this.bindUi();
-    this.buildMinderGrid();
-    this.buildLegends();
     this.buildFloaters();
-    this.refreshTitle();
     this.layout();
-    this.show('screen-title');
+    void setLang(detectLang()).then(() => {
+      this.applyLanguage();
+      this.show('screen-title');
+    });
 
     window.addEventListener('resize', () => {
       this.layout();
@@ -120,7 +125,8 @@ class App {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.state === 'playing') this.pause();
     });
-    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    this.preventZoom();
+    this.applySettings();
     document.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -141,6 +147,17 @@ class App {
     click('btn-arcade', () => this.openPicker('arcade'));
     click('btn-daily', () => this.openPicker('daily'));
     click('btn-coop', () => this.openPicker('coop'));
+    click('btn-stickers', () => {
+      this.buildStickers();
+      this.show('screen-stickers');
+    });
+    click('btn-settings', () => this.openSettings('screen-title'));
+    click('btn-pause-settings', () => this.openSettings('screen-pause'));
+    click('btn-settings-back', () => this.show(this.settingsFrom));
+    click('btn-lang', () => {
+      this.buildLanguages();
+      this.show('screen-lang');
+    });
     click('btn-help', () => this.show('screen-help'));
     click('btn-scores', () => {
       this.buildScores();
@@ -156,7 +173,7 @@ class App {
     click('btn-mute', () => this.toggleMute());
     click('share-copy', () => {
       if (!this.shareInfo) return;
-      void navigator.clipboard?.writeText(fallbackLinks(this.shareInfo).copy).then(() => this.toast('Copied! Paste it anywhere.', '#69f0ae'));
+      void navigator.clipboard?.writeText(fallbackLinks(this.shareInfo).copy).then(() => this.toast(t('over.copied'), '#69f0ae'));
     });
     document.querySelectorAll<HTMLElement>('[data-back]').forEach((b) =>
       b.addEventListener('click', () => {
@@ -204,32 +221,184 @@ class App {
     this.loadMinderImages();
   }
 
+  // ------------------------------------------------------------ progress, stickers, costumes, settings
+
+  private onEvent(e: GameEvent) {
+    const { stickers, costumes } = record(e, !this.game.daily);
+    // Sticker names may already end in "!" (and the message adds one), so collapse "!!" / "! !".
+    for (const s of stickers) this.toast(t('toast.sticker', { name: t(`stickers.${s.id}`) }).replace(/!([\s\u00a0]*!)+$/u, '!'), '#ffd54f', true);
+    for (const c of costumes) this.toast(t('toast.costume', { name: t(`wardrobe.${c}`) }), '#b2ff59', true);
+    if (stickers.length || costumes.length) audio.play('item');
+    if (stickers.length || costumes.length || e.type === 'clear' || e.type === 'reach') flush();
+  }
+
+  private buildStickers() {
+    const done = STICKERS.filter((s) => hasSticker(s.id)).length;
+    $('stickers-count').textContent = t('stickers.count', { n: done, total: STICKERS.length });
+    $('sticker-grid').innerHTML = STICKERS.map((s, i) => {
+      const got = hasSticker(s.id);
+      const [cur, goal] = s.progress(stats);
+      const tilt = ((i * 37) % 13) - 6;
+      return `<div class="sticker${got ? '' : ' locked'}"><div class="face" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>${t(`stickers.${s.id}`)}${got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`}</div>`;
+    }).join('');
+  }
+
+  private buildWardrobe() {
+    const row = $('wardrobe');
+    row.innerHTML = '';
+    const add = (key: string, icon: string, on: boolean, locked: number, fn: () => void) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.classList.toggle('on', on);
+      b.classList.toggle('locked', locked > 0);
+      b.innerHTML = `<span class="ico">${locked > 0 ? '🔒' : icon}</span>${locked > 0 ? t('wardrobe.locked', { n: locked }) : t(`wardrobe.${key}`)}`;
+      b.addEventListener('click', () => {
+        audio.play('click');
+        if (locked > 0) {
+          this.toast(t('wardrobe.locked', { n: locked }), '#ffd54f');
+          return;
+        }
+        fn();
+        saveOutfit();
+        this.buildWardrobe();
+      });
+      row.appendChild(b);
+    };
+    add('none', '🙂', outfit.hat === null, 0, () => (outfit.hat = null));
+    for (const c of COSTUMES) {
+      const locked = isUnlocked(c.id) ? 0 : c.level;
+      if (c.slot === 'hat') add(c.id, c.icon, outfit.hat === c.id, locked, () => (outfit.hat = c.id as 'witchHat' | 'partyHat'));
+      else add(c.id, c.icon, outfit.cape, locked, () => (outfit.cape = !outfit.cape));
+    }
+  }
+
+  private openSettings(from: string) {
+    this.settingsFrom = from;
+    const list = $('settings-list');
+    list.innerHTML = '';
+    (['slow', 'bigButtons', 'colorBlind', 'noScary'] as (keyof Settings)[]).forEach((key) => {
+      const label = key === 'bigButtons' ? 'big' : key;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'setting';
+      b.setAttribute('role', 'switch');
+      const paint = () => {
+        b.setAttribute('aria-checked', String(settings[key]));
+        b.innerHTML = `<span>${t(`settings.${label}`)}<small>${t(`settings.${label}Sub`)}</small></span><b>${t(settings[key] ? 'settings.on' : 'settings.off')}</b>`;
+      };
+      paint();
+      b.addEventListener('click', () => {
+        audio.play('click');
+        settings[key] = !settings[key];
+        saveSettings();
+        this.applySettings();
+        paint();
+      });
+      list.appendChild(b);
+    });
+    this.show('screen-settings');
+  }
+
+  private applySettings() {
+    this.appEl.classList.toggle('big-buttons', settings.bigButtons);
+    this.layout();
+  }
+
+  /**
+   * iOS ignores user-scalable=no, so a quick double tap on the pads used to zoom in, with no way back during play.
+   * Block the double-tap gesture on the game area, and undo any zoom that still slips through.
+   */
+  private preventZoom() {
+    for (const el of [$('controls'), this.stage]) {
+      el.addEventListener('touchstart', (e) => e.cancelable && e.preventDefault(), { passive: false });
+      el.addEventListener('touchend', (e) => e.cancelable && e.preventDefault(), { passive: false });
+    }
+    let timer = 0;
+    window.visualViewport?.addEventListener('resize', () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => this.resetZoom(), 400);
+    });
+  }
+
+  private resetZoom() {
+    const vv = window.visualViewport;
+    if (!vv || vv.scale <= 1.01 || this.state === 'menu') return;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!meta) return;
+    const original = meta.content;
+    // Re-applying a (different) viewport makes iOS snap back to scale 1.
+    meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    window.setTimeout(() => (meta.content = original), 300);
+  }
+
+  /** Re-renders everything that has text after the language changes. */
+  private applyLanguage() {
+    this.buildMinderGrid();
+    this.buildLegends();
+    this.buildWardrobe();
+    this.refreshTitle();
+    this.hud.clear();
+  }
+
+  private buildLanguages() {
+    const list = $('lang-list');
+    list.innerHTML = '';
+    for (const l of LANGS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.lang = l.id;
+      b.textContent = l.name;
+      b.classList.toggle('selected', l.id === getLang());
+      b.addEventListener('click', () => {
+        audio.play('click');
+        void this.changeLanguage(l.id);
+      });
+      list.appendChild(b);
+    }
+  }
+
+  private async changeLanguage(l: Lang) {
+    // Drop messages written in the old language (they would also re-flow oddly when switching to/from RTL).
+    this.toastQueue = [];
+    $('toast').classList.remove('show');
+    await setLang(l, true);
+    this.applyLanguage();
+    this.show('screen-title');
+  }
+
   private refreshTitle() {
     $<HTMLImageElement>('title-minder').src = minderSrc(this.minders[0].id);
     $('title-best').textContent = highScore().toLocaleString('en-US');
     const day = dailyKey();
     const best = loadDaily()[day];
-    $('daily-sub').textContent = best ? `Today's best: ${best.score.toLocaleString('en-US')}` : `Same mazes for everyone today (${day})`;
-    $('btn-coop').hidden = !bigScreen();
+    $('daily-sub').textContent = best ? t('title.dailyBest', { score: best.score.toLocaleString('en-US') }) : t('title.dailySub', { day });
+    const big = bigScreen();
+    $('btn-coop').classList.toggle('unavailable', !big);
+    $('btn-coop').setAttribute('aria-disabled', String(!big));
+    $('coop-sub').textContent = t(big ? 'title.coopSub' : 'title.coopSubSmall');
+    $('lang-name').textContent = LANGS.find((l) => l.id === getLang())?.name ?? 'English';
   }
 
   private openPicker(mode: Mode) {
-    if (mode === 'coop' && !bigScreen()) mode = 'arcade';
+    if (mode === 'coop' && !bigScreen()) {
+      // Shown but disabled on phones: explain instead of starting.
+      this.toast(t('title.coopNeedsBig'), '#80deea');
+      return;
+    }
     this.mode = mode;
     this.picking = 0;
     this.loadMinderImages();
     this.refreshPicker();
+    this.buildWardrobe();
     this.show('screen-select');
   }
 
   private refreshPicker() {
     const coop = this.mode === 'coop';
-    $('select-title').textContent = coop ? (this.picking === 0 ? 'Player 1, pick!' : 'Player 2, pick!') : 'Pick your Minder';
+    $('select-title').textContent = coop ? t(this.picking === 0 ? 'select.p1' : 'select.p2') : t('select.title');
     const sub = $('select-sub');
     sub.hidden = !coop && this.mode !== 'daily';
-    sub.textContent = coop
-      ? 'Tap a Minder for the player shown above. Tap again to switch players.'
-      : `Daily Challenge · ${dailyKey()} · ${DAILY_STAGES.length} stages, the same for everyone`;
+    sub.textContent = coop ? t('select.coopSub') : t('select.dailySub', { day: dailyKey(), n: DAILY_STAGES.length });
     $('minder-grid')
       .querySelectorAll<HTMLElement>('.minder-card')
       .forEach((card) => {
@@ -250,7 +419,7 @@ class App {
       card.className = 'minder-card';
       card.type = 'button';
       card.dataset.id = m.id;
-      card.innerHTML = `<img src="${minderSrc(m.id)}" alt="" loading="lazy" /><b>${m.name}</b><small>${m.tagline}</small>`;
+      card.innerHTML = `<img src="${minderSrc(m.id)}" alt="" loading="lazy" /><b>${minderName(m.id)}</b><small>${t(`minders.${m.id}.tagline`)}</small>`;
       card.addEventListener('click', () => {
         audio.unlock();
         audio.play('click');
@@ -280,24 +449,26 @@ class App {
 
   private buildLegends() {
     const items = $('item-legend');
+    items.innerHTML = '';
     for (const k of Object.keys(ITEMS) as ItemKind[]) {
       const row = document.createElement('div');
       row.append(this.icon(`item-${k}`, (g) => ITEM_ART[k](g, 0), 40));
-      row.insertAdjacentHTML('beforeend', `<span><b>${ITEMS[k].name}</b><br>${ITEM_HELP[k]}</span>`);
+      row.insertAdjacentHTML('beforeend', `<span><b>${t(`items.${k}.name`)}</b><br>${t(`items.${k}.help`)}</span>`);
       items.appendChild(row);
     }
     const monsters = $('monster-legend');
+    monsters.innerHTML = '';
     for (const k of Object.keys(ENEMIES) as EnemyKind[]) {
       if (k === 'minipumpkin') continue;
       const def = ENEMIES[k];
       const art = MONSTER_ART[k];
       const notes: string[] = [];
-      if (def.phases) notes.push('flies through walls');
-      if (def.hp > 1) notes.push(`takes ${def.hp} hits`);
-      if (k === 'pumpkin') notes.push('splits in two from level 5');
-      if (k === 'vampire') notes.push('turns into bats');
-      if (k === 'bat') notes.push('fast and silly');
-      if (k === 'cousin') notes.push('the ultimate boss: a perfectly normal person who takes 10 eyeballs');
+      if (def.phases) notes.push(t('help.notePhases'));
+      if (def.hp > 1 && k !== 'cousin') notes.push(t('help.noteHits', { n: def.hp }));
+      if (k === 'pumpkin') notes.push(t('help.noteSplit'));
+      if (k === 'vampire') notes.push(t('help.noteBats'));
+      if (k === 'bat') notes.push(t('help.noteFast'));
+      if (k === 'cousin') notes.push(t('help.noteBoss'));
       const row = document.createElement('div');
       row.append(
         this.icon(
@@ -311,7 +482,7 @@ class App {
       );
       row.insertAdjacentHTML(
         'beforeend',
-        `<span><b>${def.name}</b> · ${def.points} pts<br>${notes.join(', ') || 'chases you around'} (${k === 'cousin' ? `every ${def.unlock}th level` : `from level ${def.unlock}`})</span>`,
+        `<span><b>${t(`monsters.${k}.name`)}</b> · ${t('help.pts', { n: def.points })}<br>${notes.join(', ') || t('help.noteChase')} (${t(k === 'cousin' ? 'help.everyNth' : 'help.fromLevel', { n: def.unlock })})</span>`,
       );
       monsters.appendChild(row);
     }
@@ -336,10 +507,10 @@ class App {
       ? scores
           .map(
             (s) =>
-              `<li><img src="${minderSrc(s.minder)}" alt="" />${s.minder2 ? `<img src="${minderSrc(s.minder2)}" alt="" />` : ''}<span>Level ${s.level}<br><small>${new Date(s.date).toLocaleDateString()}</small></span><b>${s.score.toLocaleString('en-US')}</b></li>`,
+              `<li><img src="${minderSrc(s.minder)}" alt="" />${s.minder2 ? `<img src="${minderSrc(s.minder2)}" alt="" />` : ''}<span>${t('scores.level', { n: s.level })}<br><small>${new Date(s.date).toLocaleDateString(getLang())}</small></span><b>${s.score.toLocaleString('en-US')}</b></li>`,
           )
           .join('')
-      : '<li style="justify-content:center">No scores yet. Go play! 🎃</li>';
+      : `<li style="justify-content:center">${t('scores.empty')}</li>`;
     const days = Object.entries(loadDaily())
       .sort(([a], [b]) => (a < b ? 1 : -1))
       .slice(0, 7);
@@ -347,10 +518,10 @@ class App {
       ? days
           .map(
             ([day, d]) =>
-              `<li><img src="${minderSrc(d.minder)}" alt="" /><span>${day === dailyKey() ? 'Today' : day}<br><small>${d.stages >= DAILY_STAGES.length ? 'Cleared! 🎉' : `Stage ${d.stages + 1} of ${DAILY_STAGES.length}`}</small></span><b>${d.score.toLocaleString('en-US')}</b></li>`,
+              `<li><img src="${minderSrc(d.minder)}" alt="" /><span>${day === dailyKey() ? t('scores.today') : day}<br><small>${d.stages >= DAILY_STAGES.length ? t('scores.cleared') : t('scores.stageOf', { n: d.stages + 1, total: DAILY_STAGES.length })}</small></span><b>${d.score.toLocaleString('en-US')}</b></li>`,
           )
           .join('')
-      : '<li style="justify-content:center">No daily runs yet. Try today\'s! 📅</li>';
+      : `<li style="justify-content:center">${t('scores.emptyDaily')}</li>`;
   }
 
   // ------------------------------------------------------------ game flow
@@ -365,6 +536,13 @@ class App {
     $('share-fallback').hidden = true;
     this.input.coop = this.mode === 'coop';
     this.layout();
+    const ghost = this.mode === 'daily' ? loadGhost(dailyKey()) : null;
+    this.game.ghostRun = ghost;
+    if (ghost) {
+      const img = new Image();
+      img.src = minderSrc(ghost.minder);
+      this.renderer.setGhostImage(img);
+    } else this.renderer.setGhostImage(undefined);
     this.game.start({ mode: this.mode === 'daily' ? 'daily' : 'arcade', players: this.mode === 'coop' ? 2 : 1 });
     this.input.enabled = true;
     audio.startMusic('spooky');
@@ -404,10 +582,10 @@ class App {
   private onLevelIntro(level: number) {
     window.clearTimeout(this.partyTimer);
     const g = this.game;
-    const theme = `<div class="small theme-name">${THEME_NAMES[g.theme]}</div>`;
+    const theme = `<div class="small theme-name">${t(`themes.${g.theme}`)}</div>`;
     if (g.party) {
       this.banner(
-        `<div class="big party">HAPPY 12TH<br>BIRTHDAY<br>MINDERA!</div><div class="small">🎉 Party level: double points! 🎉</div><img src="${minderSrc('party')}" alt="" />`,
+        `<div class="big party">${t('banner.birthday')}</div><div class="small">${t('banner.partyLine')}</div><img src="${minderSrc('party')}" alt="" />`,
         3200,
       );
       audio.stopMusic();
@@ -418,15 +596,16 @@ class App {
       return;
     }
     if (g.daily) {
-      this.banner(`<div class="big">STAGE ${g.stage + 1}/${DAILY_STAGES.length}</div>${theme}<div class="small">Daily Challenge · ${g.day}</div>`, 2400);
+      this.banner(`<div class="big">${t('banner.stage', { n: g.stage + 1, total: DAILY_STAGES.length })}</div>${theme}<div class="small">${t('banner.dailyLine', { day: g.day })}</div>`, 2400);
       if (g.stage === 0) audio.startMusic('spooky');
       return;
     }
-    const quip = LEVEL_QUIPS[(level - 1) % LEVEL_QUIPS.length];
-    this.banner(`<div class="big">LEVEL ${level}</div>${theme}<div class="small">${quip}</div>`, 2400);
+    const quips = ta('quips');
+    const quip = quips[(level - 1) % quips.length];
+    this.banner(`<div class="big">${t('banner.level', { n: level })}</div>${theme}<div class="small">${quip}</div>`, 2400);
     if (level === ANNIVERSARY_LEVEL + 1 || level === 1) audio.startMusic('spooky');
     if (level === 1 && g.coop && !isTouch()) {
-      window.setTimeout(() => this.toast('P1: WASD + Space (fire) + E (bomb) · P2: Arrows + Enter (fire) + right Shift (bomb)', '#18ffff'), 2500);
+      window.setTimeout(() => this.toast(t('banner.keys'), '#18ffff'), 2500);
     }
   }
 
@@ -434,17 +613,18 @@ class App {
     const cheer = this.minderImgs.map((img) => `<img class="cheering" src="${img.src}" alt="" />`).join('');
     if (this.game.party && level === ANNIVERSARY_LEVEL) {
       this.banner(
-        `<div class="big party">HAPPY<br>ANNIVERSARY<br>MINDERA!</div><div class="small">🎆 Time bonus +${bonus.toLocaleString('en-US')} 🎆</div>`,
+        `<div class="big party">${t('banner.anniversary')}</div><div class="small">🎆 ${t('banner.bonus', { n: bonus.toLocaleString('en-US') })} 🎆</div>`,
         6800,
       );
       return;
     }
-    const title = this.game.daily ? `STAGE ${this.game.stage + 1} CLEAR!` : 'LEVEL CLEAR!';
-    this.banner(`<div class="big">${title}</div><div class="small">Time bonus +${bonus.toLocaleString('en-US')}</div><div class="cheer-row">${cheer}</div>`, 2800);
+    const title = this.game.daily ? t('banner.stageClear', { n: this.game.stage + 1 }) : t('banner.clear');
+    this.banner(`<div class="big">${title}</div><div class="small">${t('banner.bonus', { n: bonus.toLocaleString('en-US') })}</div><div class="cheer-row">${cheer}</div>`, 2800);
   }
 
   private onGameOver(reason: string, won: boolean) {
     this.state = 'over';
+    flush();
     this.input.enabled = false;
     audio.stopMusic();
     void this.keepAwake(false);
@@ -455,25 +635,27 @@ class App {
     let isBest: boolean;
     if (g.daily) {
       isBest = saveDaily(g.day, { score, stages: stagesCleared, minder: this.minders[0].id }) && score > 0;
-      $('over-headline').textContent = won ? 'DAILY CHALLENGE CLEARED!' : 'DAILY CHALLENGE';
-      $('over-level-label').textContent = 'STAGE';
+      // Your best run of the day becomes the ghost you race next time.
+      if (isBest) saveGhost({ day: g.day, minder: this.minders[0].id, score, stages: g.recording });
+      $('over-headline').textContent = t(won ? 'over.dailyWon' : 'over.daily');
+      $('over-level-label').textContent = t('over.stage');
       $('over-level').textContent = `${Math.min(g.stage + 1, DAILY_STAGES.length)}/${DAILY_STAGES.length}`;
-      $('over-best-label').textContent = "TODAY'S BEST";
+      $('over-best-label').textContent = t('over.todayBest');
       $('over-best').textContent = (loadDaily()[g.day]?.score ?? score).toLocaleString('en-US');
     } else {
       const rank = saveScore({ score, level, minder: this.minders[0].id, minder2: coop ? this.minders[1].id : undefined, date: new Date().toISOString() });
       isBest = rank === 0 && score > 0;
-      $('over-headline').textContent = won ? 'YOU SAVED HALLOWEEN!' : coop ? 'GAME OVER, TEAM!' : 'GAME OVER';
-      $('over-level-label').textContent = 'LEVEL';
+      $('over-headline').textContent = t(won ? 'over.won' : coop ? 'over.gameOverTeam' : 'over.gameOver');
+      $('over-level-label').textContent = t('over.level');
       $('over-level').textContent = String(level);
-      $('over-best-label').textContent = 'HIGH SCORE';
+      $('over-best-label').textContent = t('over.highScore');
       $('over-best').textContent = highScore().toLocaleString('en-US');
     }
     $('over-reason').textContent = reason;
     this.showEmotes(won);
     $('over-score').textContent = score.toLocaleString('en-US');
     $('over-new').hidden = !isBest;
-    $('over-new').textContent = g.daily ? "🎉 NEW BEST FOR TODAY! 🎉" : '🎉 NEW HIGH SCORE! 🎉';
+    $('over-new').textContent = t(g.daily ? 'over.newDaily' : 'over.newHigh');
     $('share-fallback').hidden = true;
     $('banner').innerHTML = '';
     this.show('screen-over');
@@ -481,11 +663,11 @@ class App {
     this.shareInfo = {
       score,
       level,
-      minderName: this.minders[0].name,
+      minderName: minderName(this.minders[0].id),
       minderImg: this.minderImgs[0],
       won,
       daily: g.daily ? { day: g.day, stages: stagesCleared, total: DAILY_STAGES.length } : undefined,
-      partnerName: coop ? this.minders[1].name : undefined,
+      partnerName: coop ? minderName(this.minders[1].id) : undefined,
     };
     this.card = null;
     void buildCard(this.shareInfo).then((b) => {
@@ -542,13 +724,22 @@ class App {
 
   // ------------------------------------------------------------ overlays
 
-  private toast(text: string, color = '#fff59d') {
-    const t = $('toast');
-    t.textContent = text;
-    t.style.color = color;
-    t.classList.add('show');
+  /** Shows a message; `queued` ones (stickers, unlocks) wait for the current one instead of replacing it. */
+  private toast(text: string, color = '#fff59d', queued = false) {
+    const el = $('toast');
+    if (queued && el.classList.contains('show')) {
+      this.toastQueue.push({ text, color });
+      return;
+    }
+    el.textContent = text;
+    el.style.color = color;
+    el.classList.add('show');
     window.clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => t.classList.remove('show'), Math.max(2400, text.length * 45));
+    this.toastTimer = window.setTimeout(() => {
+      el.classList.remove('show');
+      const next = this.toastQueue.shift();
+      if (next) window.setTimeout(() => this.toast(next.text, next.color), 300);
+    }, Math.max(2400, text.length * 45));
   }
 
   private banner(html: string, ms: number) {
@@ -603,7 +794,7 @@ class App {
 
   private updateHud() {
     const g = this.game;
-    this.setText('hud-level-label', g.daily ? 'STAGE' : 'LEVEL');
+    this.setText('hud-level-label', t(g.daily ? 'hud.stage' : 'hud.level'));
     this.setText('hud-level', g.daily ? `${g.stage + 1}/${DAILY_STAGES.length}` : String(g.level));
     this.setText('hud-score', g.score.toLocaleString('en-US'));
     const s = Math.max(0, Math.ceil(g.timeLeft));

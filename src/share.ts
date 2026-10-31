@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { SHARE_URL } from './config';
+import { isRtl, t, titleFont, uiFont } from './i18n';
 
 export interface ShareInfo {
   score: number;
@@ -21,17 +22,15 @@ export function gameUrl(): string {
 }
 
 export function shareText(i: ShareInfo): string {
-  const pts = i.score.toLocaleString('en-US');
-  const who = i.partnerName ? `${i.minderName} & ${i.partnerName}` : i.minderName;
-  const we = i.partnerName ? 'We' : 'I';
-  let what: string;
+  const score = i.score.toLocaleString('en-US');
+  const who = i.partnerName ? t('share.and', { a: i.minderName, b: i.partnerName }) : i.minderName;
   if (i.daily) {
-    const done = i.daily.stages >= i.daily.total ? 'cleared' : `reached stage ${i.daily.stages + 1} of`;
-    what = `${we} ${done} today's Halloween Minder Daily Challenge (${i.daily.day}) with ${pts} points`;
-  } else {
-    what = i.won ? `${we} beat all 100 levels of Halloween Minder with ${pts} points` : `${we} scored ${pts} points and reached level ${i.level} in Halloween Minder`;
+    return i.daily.stages >= i.daily.total
+      ? t('share.dailyCleared', { day: i.daily.day, score, who })
+      : t('share.dailyStage', { n: i.daily.stages + 1, total: i.daily.total, day: i.daily.day, score, who });
   }
-  return `🎃 ${what} as ${who}! 👁️ Can you beat ${i.partnerName ? 'us' : 'me'}? Happy Halloween. With love, Mindera`;
+  const key = i.won ? 'share.won' : 'share.score';
+  return t(i.partnerName ? `${key}Team` : key, { score, level: i.level, who });
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -72,14 +71,23 @@ export async function buildCard(i: ShareInfo): Promise<Blob | null> {
 
   g.textAlign = 'center';
   g.textBaseline = 'middle';
+  g.direction = isRtl() ? 'rtl' : 'ltr';
+  await document.fonts?.load(`700 40px ${uiFont()}`, t('card.challenge')).catch(() => undefined);
+  const fit = (text: string, max: number) => {
+    // Shrink long translations so they stay inside the card.
+    const w = g.measureText(text).width;
+    if (w > max) g.font = g.font.replace(/(\d+)px/, (_, px) => `${Math.floor((Number(px) * max) / w)}px`);
+  };
   g.fillStyle = '#ff7b00';
   g.shadowColor = 'rgba(255,123,0,0.8)';
   g.shadowBlur = 30;
-  g.font = '120px Creepster, Fredoka, cursive';
-  g.fillText('Happy Halloween.', S / 2, 150);
+  g.font = `120px ${titleFont()}`;
+  fit(t('card.happy'), S - 80);
+  g.fillText(t('card.happy'), S / 2, 150);
   g.fillStyle = '#ffd400';
-  g.font = '84px Creepster, Fredoka, cursive';
-  g.fillText('With love, Mindera', S / 2, 262);
+  g.font = `84px ${titleFont()}`;
+  fit(t('card.love'), S - 120);
+  g.fillText(t('card.love'), S / 2, 262);
   g.shadowBlur = 0;
 
   const img = i.minderImg;
@@ -97,20 +105,26 @@ export async function buildCard(i: ShareInfo): Promise<Blob | null> {
   g.roundRect(140, 700, 800, 210, 40);
   g.fill();
   g.fillStyle = '#c9b8e0';
-  g.font = '600 40px Fredoka, sans-serif';
+  g.font = `600 40px ${uiFont()}`;
+  const who = i.partnerName ? t('share.and', { a: i.minderName, b: i.partnerName }) : i.minderName;
   const sub = i.daily
-    ? `DAILY CHALLENGE ${i.daily.day} · ${i.daily.stages >= i.daily.total ? 'CLEARED!' : `STAGE ${i.daily.stages + 1}/${i.daily.total}`}`
+    ? t('card.daily', {
+        day: i.daily.day,
+        status: i.daily.stages >= i.daily.total ? t('card.dailyCleared') : t('card.dailyStage', { n: i.daily.stages + 1, total: i.daily.total }),
+      })
     : i.won
-      ? 'ALL 100 LEVELS BEATEN!'
-      : `${(i.partnerName ? `${i.minderName} & ${i.partnerName}` : i.minderName).toUpperCase()} · LEVEL ${i.level}`;
+      ? t('card.allBeaten')
+      : t('card.level', { who: who.toLocaleUpperCase(), n: i.level });
+  fit(sub, 780);
   g.fillText(sub, S / 2, 745);
   g.fillStyle = '#ffd400';
-  g.font = '700 120px Fredoka, sans-serif';
+  g.font = `700 120px ${uiFont()}`;
   g.fillText(i.score.toLocaleString('en-US'), S / 2, 840);
 
   g.fillStyle = '#fff8ec';
-  g.font = '600 38px Fredoka, sans-serif';
-  g.fillText('Can you beat me in Halloween Minder? 👁️🎃', S / 2, 950);
+  g.font = `600 38px ${uiFont()}`;
+  fit(t('card.challenge'), S - 80);
+  g.fillText(t('card.challenge'), S / 2, 950);
   const logo = await loadImage(`${import.meta.env.BASE_URL}mindera-logo.png`);
   if (logo) g.drawImage(logo, S / 2 - 80, 985, 160, (160 * logo.height) / logo.width);
 
@@ -124,7 +138,7 @@ export async function shareScore(i: ShareInfo, card: Blob | null): Promise<Share
   const url = gameUrl();
   try {
     if (Capacitor.isNativePlatform()) {
-      await Share.share({ title: 'Halloween Minder', text, url, dialogTitle: 'Share your score' });
+      await Share.share({ title: 'Halloween Minder', text, url, dialogTitle: t('share.dialogTitle') });
       return 'shared';
     }
     if (card && navigator.canShare) {

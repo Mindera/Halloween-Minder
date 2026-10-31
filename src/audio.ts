@@ -1,3 +1,5 @@
+import { settings } from './progress';
+
 /** Every sound is synthesised with WebAudio, so there are no audio assets to ship. */
 export type Sfx =
   | 'shoot'
@@ -29,11 +31,15 @@ export type Sfx =
   | 'glitch'
   | 'matrix'
   | 'boss'
+  | 'boo'
   | 'fuse'
   | 'boom'
   | 'cry';
 
 const NOTE = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
+
+/** With "no scary sounds" on, these are swapped for gentle ones (or silence). */
+const GENTLE: Partial<Record<Sfx, Sfx | null>> = { boo: 'appear', boss: 'item', spawn: null, boom: 'crack', glitch: 'click', death: 'cry' };
 
 export class SoundBoard {
   private ctx?: AudioContext;
@@ -128,8 +134,10 @@ export class SoundBoard {
     src.stop(t + dur + 0.02);
   }
 
-  play(s: Sfx) {
+  play(sound: Sfx) {
     if (!this.ctx || this.muted) return;
+    const s = settings.noScary && sound in GENTLE ? GENTLE[sound] : sound;
+    if (!s) return;
     switch (s) {
       case 'shoot':
         this.tone(320, 0.12, 'sine', 0.25, 900);
@@ -232,6 +240,11 @@ export class SoundBoard {
           this.tone(NOTE(n), n === 39 ? 1.1 : 0.3, 'sawtooth', 0.22, n === 39 ? NOTE(34) : undefined, t);
           this.tone(NOTE(n + 12), n === 39 ? 1.1 : 0.3, 'square', 0.08, undefined, t);
         });
+        break;
+      case 'boo':
+        this.tone(140, 0.5, 'sawtooth', 0.3, 420);
+        this.noise(0.4, 0.4, 700, 0, 1.2);
+        this.tone(660, 0.35, 'square', 0.12, 220, 0.12);
         break;
       case 'fuse':
         this.noise(0.5, 0.2, 5000, 0, 3);
