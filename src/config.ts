@@ -4,28 +4,52 @@ export const LEVEL_TIME = 120;
 export const EFFECT_TIME = 10;
 export const SHARE_URL = 'https://mindera.github.io/Halloween-Minder/';
 
+export const START_BOMBS = 3;
+export const MAX_BOMBS = 5;
+export const BOMB_FUSE = 2;
+export const BOMB_RADIUS = 1.8;
+
+export type GameMode = 'arcade' | 'daily';
+/** The Daily Challenge is three stages played at these difficulty levels (the last one brings the boss). */
+export const DAILY_STAGES = [4, 7, 10];
+/** Fixed maze size so everyone gets exactly the same daily mazes, whatever their screen. */
+export const DAILY_DIMS = { w: 15, h: 21 };
+
+/** Today's date in UTC, so the whole world shares the same daily challenge. */
+export function dailyKey(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export function dailySeed(key: string): number {
+  let h = 2166136261;
+  for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  return h >>> 0;
+}
+
 export interface MinderDef {
   id: string;
   name: string;
   tagline: string;
   /** Iris colour of the eyeballs this minder shoots. */
   iris: string;
+  /** Where the eye sits in the picture (0..1), so tears come out of the right place. */
+  eye: [number, number];
 }
 
 export const MINDERS: MinderDef[] = [
-  { id: 'classic', name: 'Classic Minder', tagline: 'The original. Never blinks.', iris: '#3a7bd5' },
-  { id: 'pumpkin', name: 'Pumpkin Minder', tagline: 'Gourd-geously brave.', iris: '#ff8c1a' },
-  { id: 'franken', name: 'Franken-Minder', tagline: "It's alive! And coding.", iris: '#2ecc40' },
-  { id: 'boo', name: 'Boo Minder', tagline: 'Says BOO to bugs.', iris: '#8e44ad' },
-  { id: 'slime', name: 'Slime Minder', tagline: 'Gooey but groovy.', iris: '#27ae60' },
-  { id: 'fuzzy', name: 'Fuzzy Minder', tagline: 'Desperately needs a haircut.', iris: '#c0392b' },
-  { id: 'shadow', name: 'Shadow Minder', tagline: 'Dark mode: ON.', iris: '#111111' },
-  { id: 'scientist', name: 'Mad Scientist', tagline: 'Mwahaha-ha-hackathon!', iris: '#16a085' },
-  { id: 'doctor', name: 'Dr. Minder', tagline: 'Fixes bugs. Literally.', iris: '#2980b9' },
-  { id: 'cowboy', name: 'Cowboy Minder', tagline: 'Yee-haw! Deploys on Fridays.', iris: '#8b5a2b' },
-  { id: 'gamer', name: 'Gamer Minder', tagline: 'Pro at eye-sports.', iris: '#e74c3c' },
-  { id: 'rocket', name: 'Rocket Minder', tagline: 'Ships it to the moon.', iris: '#f39c12' },
-  { id: 'bow', name: 'Bow Minder', tagline: 'Cute. Brave. Very cute.', iris: '#1abc9c' },
+  { id: 'classic', name: 'Classic Minder', tagline: 'The original. Never blinks.', iris: '#3a7bd5', eye: [0.5, 0.33] },
+  { id: 'pumpkin', name: 'Pumpkin Minder', tagline: 'Gourd-geously brave.', iris: '#ff8c1a', eye: [0.5, 0.45] },
+  { id: 'franken', name: 'Franken-Minder', tagline: "It's alive! And coding.", iris: '#2ecc40', eye: [0.48, 0.33] },
+  { id: 'boo', name: 'Boo Minder', tagline: 'Says BOO to bugs.', iris: '#8e44ad', eye: [0.55, 0.32] },
+  { id: 'slime', name: 'Slime Minder', tagline: 'Gooey but groovy.', iris: '#27ae60', eye: [0.47, 0.33] },
+  { id: 'fuzzy', name: 'Fuzzy Minder', tagline: 'Desperately needs a haircut.', iris: '#c0392b', eye: [0.5, 0.42] },
+  { id: 'shadow', name: 'Shadow Minder', tagline: 'Dark mode: ON.', iris: '#111111', eye: [0.5, 0.33] },
+  { id: 'scientist', name: 'Mad Scientist', tagline: 'Mwahaha-ha-hackathon!', iris: '#16a085', eye: [0.5, 0.33] },
+  { id: 'doctor', name: 'Dr. Minder', tagline: 'Fixes bugs. Literally.', iris: '#2980b9', eye: [0.5, 0.42] },
+  { id: 'cowboy', name: 'Cowboy Minder', tagline: 'Yee-haw! Deploys on Fridays.', iris: '#8b5a2b', eye: [0.5, 0.52] },
+  { id: 'gamer', name: 'Gamer Minder', tagline: 'Pro at eye-sports.', iris: '#e74c3c', eye: [0.5, 0.43] },
+  { id: 'rocket', name: 'Rocket Minder', tagline: 'Ships it to the moon.', iris: '#f39c12', eye: [0.5, 0.35] },
+  { id: 'bow', name: 'Bow Minder', tagline: 'Cute. Brave. Very cute.', iris: '#1abc9c', eye: [0.5, 0.47] },
 ];
 
 const BOSS_EVERY_LEVELS = 10;
@@ -77,7 +101,7 @@ export const BOSS_EVERY = BOSS_EVERY_LEVELS;
 /** Optional photo for Palos' cousin, e.g. 'boss/palos-cousin.png' in public/. Empty = cartoon drawing. */
 export const BOSS_PHOTO = '';
 
-export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'roach' | 'rabbit' | 'candy' | 'cake';
+export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'roach' | 'rabbit' | 'bomb' | 'candy' | 'cake';
 
 export interface ItemDef {
   name: string;
@@ -98,6 +122,7 @@ export const ITEMS: Record<ItemKind, ItemDef> = {
   coffee: { name: 'Coffee', toast: 'COFFEE! Rapid-fire eyeballs!', weight: 3 },
   roach: { name: 'Cockroach', toast: 'Ups, we found a bug! The controls are glitching!', weight: 2 },
   rabbit: { name: 'White Rabbit', toast: 'You caught the White Rabbit! Welcome to the Matrix...', weight: 2 },
+  bomb: { name: 'Pumpkin Bombs', toast: 'PUMPKIN BOMBS! +2 bombs. Drop one with the BOMB button!', weight: 2, instant: true },
   candy: { name: 'Candy', toast: 'CANDY! +1000 sweet points!', weight: 2, instant: true },
   cake: { name: 'Birthday Cake', toast: 'HAPPY 12TH BIRTHDAY MINDERA! +1200!', weight: 0, instant: true },
 };
@@ -120,6 +145,8 @@ export const LEVEL_QUIPS = [
 export type ThemeId = 'graveyard' | 'pumpkins' | 'haunted' | 'forest' | 'lab' | 'servers' | 'swamp' | 'castle' | 'party';
 
 const THEME_ORDER: ThemeId[] = ['graveyard', 'pumpkins', 'haunted', 'forest', 'lab', 'servers', 'swamp', 'castle'];
+
+export const THEME_LIST: ThemeId[] = ['graveyard', 'pumpkins', 'haunted', 'forest', 'lab', 'servers', 'swamp', 'castle'];
 
 export const THEME_NAMES: Record<ThemeId, string> = {
   graveyard: 'The Graveyard',

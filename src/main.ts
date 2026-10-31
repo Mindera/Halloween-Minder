@@ -1,20 +1,37 @@
 import './style.css';
 import { audio } from './audio';
-import { ANNIVERSARY_LEVEL, ENEMIES, ITEMS, LEVEL_QUIPS, LEVEL_TIME, MINDERS, THEME_NAMES, themeFor, type EnemyKind, type ItemKind, type MinderDef } from './config';
+import {
+  ANNIVERSARY_LEVEL,
+  DAILY_STAGES,
+  ENEMIES,
+  ITEMS,
+  LEVEL_QUIPS,
+  LEVEL_TIME,
+  MINDERS,
+  THEME_NAMES,
+  dailyKey,
+  type EnemyKind,
+  type ItemKind,
+  type MinderDef,
+} from './config';
 import { Game } from './game';
 import { Input } from './input';
 import { pickDims } from './maze';
 import { Renderer, type Rect } from './render';
 import { buildCard, fallbackLinks, shareScore, type ShareInfo } from './share';
 import { ITEM_ART, MONSTER_ART, bake, drawGooglyEye } from './sprites';
-import { highScore, loadMinder, loadScores, saveMinder, saveScore } from './storage';
+import { highScore, loadDaily, loadMinder, loadScores, saveDaily, saveMinder, saveScore } from './storage';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const minderSrc = (id: string) => `${import.meta.env.BASE_URL}minders/${id}.png`;
 const isTouch = () => window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+/** Co-op needs room for two people: tablets and computers. */
+const bigScreen = () => Math.min(window.innerWidth, window.innerHeight) >= 600;
 const SCREENS = ['screen-title', 'screen-select', 'screen-help', 'screen-scores', 'screen-pause', 'screen-over'];
+const P2_KEY = 'hm.minder2';
 
 type State = 'menu' | 'playing' | 'paused' | 'over';
+type Mode = 'arcade' | 'daily' | 'coop';
 
 const ITEM_HELP: Record<ItemKind, string> = {
   cricket: 'Chirp chirp! Monsters near you go bonkers and pop.',
@@ -26,6 +43,7 @@ const ITEM_HELP: Record<ItemKind, string> = {
   coffee: 'Rapid-fire eyeballs!',
   roach: 'Ups, we found a bug! The game glitches and the controls get mixed up.',
   rabbit: 'It runs away! Catch it to enter the Matrix.',
+  bomb: '+2 pumpkin bombs. Drop them with BOMB to blow up crates and monsters.',
   candy: '+1000 sweet points.',
   cake: 'Only at the level 12 party. +1200!',
 };
@@ -35,11 +53,18 @@ class App {
   private stage = $('stage');
   private canvas = $<HTMLCanvasElement>('game');
   private renderer = new Renderer(this.canvas);
-  private input = new Input(this.stage, $('dpad'), $('fire'));
+  private input = new Input(this.stage, [
+    { dpad: $('dpad'), fire: $('fire'), bomb: $('bomb') },
+    { dpad: $('dpad2'), fire: $('fire2'), bomb: $('bomb2') },
+  ]);
   private game: Game;
   private state: State = 'menu';
-  private minder: MinderDef;
-  private minderImg = new Image();
+  private mode: Mode = 'arcade';
+  /** Minder for player 1 and player 2. */
+  private minders: MinderDef[];
+  private minderImgs: HTMLImageElement[] = [];
+  /** Which player is choosing on the picker screen (co-op). */
+  private picking = 0;
   private field: Rect = { x: 0, y: 0, w: 1, h: 1 };
   private last = 0;
   private hud = new Map<string, string>();
@@ -62,13 +87,20 @@ class App {
         levelIntro: (l) => this.onLevelIntro(l),
         levelClear: (l, b) => this.onLevelClear(l, b),
         gameOver: (r) => this.onGameOver(r, false),
-        victory: () => this.onGameOver('You beat all 100 levels. The monsters surrender!', true),
+        victory: () =>
+          this.onGameOver(this.game.daily ? "You cleared today's Daily Challenge!" : 'You beat all 100 levels. The monsters surrender!', true),
       },
       () => pickDims(this.field.w, this.field.h),
     );
-    const saved = loadMinder();
-    this.minder = MINDERS.find((m) => m.id === saved) ?? MINDERS[0];
-    this.setMinder(this.minder);
+    const find = (id: string | null, fallback: number) => MINDERS.find((m) => m.id === id) ?? MINDERS[fallback];
+    let p2: string | null = null;
+    try {
+      p2 = localStorage.getItem(P2_KEY);
+    } catch {
+      /* ignore */
+    }
+    this.minders = [find(loadMinder(), 0), find(p2, 3)];
+    this.loadMinderImages();
 
     this.input.onPause = () => (this.state === 'playing' ? this.pause() : this.state === 'paused' ? this.resume() : undefined);
     this.input.onMute = () => this.toggleMute();
@@ -80,7 +112,10 @@ class App {
     this.layout();
     this.show('screen-title');
 
-    window.addEventListener('resize', () => this.layout());
+    window.addEventListener('resize', () => {
+      this.layout();
+      this.refreshTitle();
+    });
     window.visualViewport?.addEventListener('resize', () => this.layout());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.state === 'playing') this.pause();
@@ -103,7 +138,9 @@ class App {
         audio.play('click');
         fn();
       });
-    click('btn-play', () => this.show('screen-select'));
+    click('btn-arcade', () => this.openPicker('arcade'));
+    click('btn-daily', () => this.openPicker('daily'));
+    click('btn-coop', () => this.openPicker('coop'));
     click('btn-help', () => this.show('screen-help'));
     click('btn-scores', () => {
       this.buildScores();
@@ -114,7 +151,7 @@ class App {
     click('btn-resume', () => this.resume());
     click('btn-quit', () => this.toMenu());
     click('btn-again', () => this.startGame());
-    click('btn-change', () => this.show('screen-select'));
+    click('btn-change', () => this.openPicker(this.mode));
     click('btn-share', () => void this.share());
     click('btn-mute', () => this.toggleMute());
     click('share-copy', () => {
@@ -141,18 +178,68 @@ class App {
     $('btn-mute').textContent = audio.muted ? '🔇' : '🔊';
   }
 
-  private setMinder(m: MinderDef) {
-    this.minder = m;
-    saveMinder(m.id);
-    const img = new Image();
-    img.onload = () => this.renderer.setMinder(img, m.iris);
-    img.src = minderSrc(m.id);
-    this.minderImg = img;
+  private loadMinderImages() {
+    const players = this.mode === 'coop' ? 2 : 1;
+    const imgs = this.minders.slice(0, players).map((m) => {
+      const img = new Image();
+      img.src = minderSrc(m.id);
+      return img;
+    });
+    this.minderImgs = imgs;
+    void Promise.all(imgs.map((img) => img.decode().catch(() => undefined))).then(() => {
+      if (this.minderImgs !== imgs) return;
+      this.renderer.setMinders(imgs.map((img, i) => ({ img, iris: this.minders[i].iris, eye: this.minders[i].eye })));
+    });
+  }
+
+  private setMinder(slot: number, m: MinderDef) {
+    this.minders[slot] = m;
+    if (slot === 0) saveMinder(m.id);
+    else
+      try {
+        localStorage.setItem(P2_KEY, m.id);
+      } catch {
+        /* ignore */
+      }
+    this.loadMinderImages();
   }
 
   private refreshTitle() {
-    $<HTMLImageElement>('title-minder').src = minderSrc(this.minder.id);
+    $<HTMLImageElement>('title-minder').src = minderSrc(this.minders[0].id);
     $('title-best').textContent = highScore().toLocaleString('en-US');
+    const day = dailyKey();
+    const best = loadDaily()[day];
+    $('daily-sub').textContent = best ? `Today's best: ${best.score.toLocaleString('en-US')}` : `Same mazes for everyone today (${day})`;
+    $('btn-coop').hidden = !bigScreen();
+  }
+
+  private openPicker(mode: Mode) {
+    if (mode === 'coop' && !bigScreen()) mode = 'arcade';
+    this.mode = mode;
+    this.picking = 0;
+    this.loadMinderImages();
+    this.refreshPicker();
+    this.show('screen-select');
+  }
+
+  private refreshPicker() {
+    const coop = this.mode === 'coop';
+    $('select-title').textContent = coop ? (this.picking === 0 ? 'Player 1, pick!' : 'Player 2, pick!') : 'Pick your Minder';
+    const sub = $('select-sub');
+    sub.hidden = !coop && this.mode !== 'daily';
+    sub.textContent = coop
+      ? 'Tap a Minder for the player shown above. Tap again to switch players.'
+      : `Daily Challenge · ${dailyKey()} · ${DAILY_STAGES.length} stages, the same for everyone`;
+    $('minder-grid')
+      .querySelectorAll<HTMLElement>('.minder-card')
+      .forEach((card) => {
+        const id = card.dataset.id;
+        card.classList.toggle('selected', id === this.minders[0].id);
+        card.classList.toggle('selected2', coop && id === this.minders[1].id);
+        card.querySelectorAll('.badge').forEach((b) => b.remove());
+        if (coop && id === this.minders[0].id) card.insertAdjacentHTML('beforeend', '<span class="badge p1">P1</span>');
+        if (coop && id === this.minders[1].id) card.insertAdjacentHTML('beforeend', '<span class="badge p2">P2</span>');
+      });
   }
 
   private buildMinderGrid() {
@@ -164,12 +251,12 @@ class App {
       card.type = 'button';
       card.dataset.id = m.id;
       card.innerHTML = `<img src="${minderSrc(m.id)}" alt="" loading="lazy" /><b>${m.name}</b><small>${m.tagline}</small>`;
-      card.classList.toggle('selected', m.id === this.minder.id);
       card.addEventListener('click', () => {
         audio.unlock();
         audio.play('click');
-        this.setMinder(m);
-        grid.querySelectorAll('.minder-card').forEach((c) => c.classList.toggle('selected', c === card));
+        this.setMinder(this.mode === 'coop' ? this.picking : 0, m);
+        if (this.mode === 'coop') this.picking = 1 - this.picking;
+        this.refreshPicker();
       });
       card.addEventListener('dblclick', () => this.startGame());
       grid.appendChild(card);
@@ -244,28 +331,41 @@ class App {
   }
 
   private buildScores() {
-    const list = $('score-list');
     const scores = loadScores();
-    list.innerHTML = scores.length
+    $('score-list').innerHTML = scores.length
       ? scores
           .map(
             (s) =>
-              `<li><img src="${minderSrc(s.minder)}" alt="" /><span>Level ${s.level}<br><small>${new Date(s.date).toLocaleDateString()}</small></span><b>${s.score.toLocaleString('en-US')}</b></li>`,
+              `<li><img src="${minderSrc(s.minder)}" alt="" />${s.minder2 ? `<img src="${minderSrc(s.minder2)}" alt="" />` : ''}<span>Level ${s.level}<br><small>${new Date(s.date).toLocaleDateString()}</small></span><b>${s.score.toLocaleString('en-US')}</b></li>`,
           )
           .join('')
       : '<li style="justify-content:center">No scores yet. Go play! 🎃</li>';
+    const days = Object.entries(loadDaily())
+      .sort(([a], [b]) => (a < b ? 1 : -1))
+      .slice(0, 7);
+    $('daily-list').innerHTML = days.length
+      ? days
+          .map(
+            ([day, d]) =>
+              `<li><img src="${minderSrc(d.minder)}" alt="" /><span>${day === dailyKey() ? 'Today' : day}<br><small>${d.stages >= DAILY_STAGES.length ? 'Cleared! 🎉' : `Stage ${d.stages + 1} of ${DAILY_STAGES.length}`}</small></span><b>${d.score.toLocaleString('en-US')}</b></li>`,
+          )
+          .join('')
+      : '<li style="justify-content:center">No daily runs yet. Try today\'s! 📅</li>';
   }
 
   // ------------------------------------------------------------ game flow
 
   private startGame() {
     audio.unlock();
+    if (this.mode === 'coop' && !bigScreen()) this.mode = 'arcade';
+    this.loadMinderImages();
     this.show(null);
     this.state = 'playing';
     $('hud').hidden = false;
     $('share-fallback').hidden = true;
+    this.input.coop = this.mode === 'coop';
     this.layout();
-    this.game.start(1);
+    this.game.start({ mode: this.mode === 'daily' ? 'daily' : 'arcade', players: this.mode === 'coop' ? 2 : 1 });
     this.input.enabled = true;
     audio.startMusic('spooky');
     void this.keepAwake(true);
@@ -303,9 +403,9 @@ class App {
 
   private onLevelIntro(level: number) {
     window.clearTimeout(this.partyTimer);
-    const party = level === ANNIVERSARY_LEVEL;
-    const quip = LEVEL_QUIPS[(level - 1) % LEVEL_QUIPS.length];
-    if (party) {
+    const g = this.game;
+    const theme = `<div class="small theme-name">${THEME_NAMES[g.theme]}</div>`;
+    if (g.party) {
       this.banner(
         `<div class="big party">HAPPY 12TH<br>BIRTHDAY<br>MINDERA!</div><div class="small">🎉 Party level: double points! 🎉</div><img src="${minderSrc('party')}" alt="" />`,
         3200,
@@ -315,21 +415,32 @@ class App {
       this.partyTimer = window.setTimeout(() => {
         if (this.state === 'playing' && this.game.party) audio.startMusic('party');
       }, 9000);
-    } else {
-      this.banner(`<div class="big">LEVEL ${level}</div><div class="small theme-name">${THEME_NAMES[themeFor(level)]}</div><div class="small">${quip}</div>`, 2400);
-      if (level === ANNIVERSARY_LEVEL + 1 || level === 1) audio.startMusic('spooky');
+      return;
+    }
+    if (g.daily) {
+      this.banner(`<div class="big">STAGE ${g.stage + 1}/${DAILY_STAGES.length}</div>${theme}<div class="small">Daily Challenge · ${g.day}</div>`, 2400);
+      if (g.stage === 0) audio.startMusic('spooky');
+      return;
+    }
+    const quip = LEVEL_QUIPS[(level - 1) % LEVEL_QUIPS.length];
+    this.banner(`<div class="big">LEVEL ${level}</div>${theme}<div class="small">${quip}</div>`, 2400);
+    if (level === ANNIVERSARY_LEVEL + 1 || level === 1) audio.startMusic('spooky');
+    if (level === 1 && g.coop && !isTouch()) {
+      window.setTimeout(() => this.toast('P1: WASD + Space (fire) + E (bomb) · P2: Arrows + Enter (fire) + right Shift (bomb)', '#18ffff'), 2500);
     }
   }
 
   private onLevelClear(level: number, bonus: number) {
-    if (level === ANNIVERSARY_LEVEL) {
+    const cheer = this.minderImgs.map((img) => `<img class="cheering" src="${img.src}" alt="" />`).join('');
+    if (this.game.party && level === ANNIVERSARY_LEVEL) {
       this.banner(
         `<div class="big party">HAPPY<br>ANNIVERSARY<br>MINDERA!</div><div class="small">🎆 Time bonus +${bonus.toLocaleString('en-US')} 🎆</div>`,
         6800,
       );
       return;
     }
-    this.banner(`<div class="big">LEVEL CLEAR!</div><div class="small">Time bonus +${bonus.toLocaleString('en-US')}</div>`, 2800);
+    const title = this.game.daily ? `STAGE ${this.game.stage + 1} CLEAR!` : 'LEVEL CLEAR!';
+    this.banner(`<div class="big">${title}</div><div class="small">Time bonus +${bonus.toLocaleString('en-US')}</div><div class="cheer-row">${cheer}</div>`, 2800);
   }
 
   private onGameOver(reason: string, won: boolean) {
@@ -337,26 +448,67 @@ class App {
     this.input.enabled = false;
     audio.stopMusic();
     void this.keepAwake(false);
-    const { score, level } = this.game;
-    const rank = saveScore({ score, level, minder: this.minder.id, date: new Date().toISOString() });
-    $('over-headline').textContent = won ? 'YOU SAVED HALLOWEEN!' : 'GAME OVER';
+    const g = this.game;
+    const { score, level } = g;
+    const coop = g.coop;
+    const stagesCleared = won ? DAILY_STAGES.length : g.stage;
+    let isBest: boolean;
+    if (g.daily) {
+      isBest = saveDaily(g.day, { score, stages: stagesCleared, minder: this.minders[0].id }) && score > 0;
+      $('over-headline').textContent = won ? 'DAILY CHALLENGE CLEARED!' : 'DAILY CHALLENGE';
+      $('over-level-label').textContent = 'STAGE';
+      $('over-level').textContent = `${Math.min(g.stage + 1, DAILY_STAGES.length)}/${DAILY_STAGES.length}`;
+      $('over-best-label').textContent = "TODAY'S BEST";
+      $('over-best').textContent = (loadDaily()[g.day]?.score ?? score).toLocaleString('en-US');
+    } else {
+      const rank = saveScore({ score, level, minder: this.minders[0].id, minder2: coop ? this.minders[1].id : undefined, date: new Date().toISOString() });
+      isBest = rank === 0 && score > 0;
+      $('over-headline').textContent = won ? 'YOU SAVED HALLOWEEN!' : coop ? 'GAME OVER, TEAM!' : 'GAME OVER';
+      $('over-level-label').textContent = 'LEVEL';
+      $('over-level').textContent = String(level);
+      $('over-best-label').textContent = 'HIGH SCORE';
+      $('over-best').textContent = highScore().toLocaleString('en-US');
+    }
     $('over-reason').textContent = reason;
-    $<HTMLImageElement>('over-minder').src = minderSrc(this.minder.id);
+    this.showEmotes(won);
     $('over-score').textContent = score.toLocaleString('en-US');
-    $('over-level').textContent = String(level);
-    $('over-best').textContent = highScore().toLocaleString('en-US');
-    $('over-new').hidden = rank !== 0 || score === 0;
+    $('over-new').hidden = !isBest;
+    $('over-new').textContent = g.daily ? "🎉 NEW BEST FOR TODAY! 🎉" : '🎉 NEW HIGH SCORE! 🎉';
     $('share-fallback').hidden = true;
     $('banner').innerHTML = '';
     this.show('screen-over');
-    if (rank === 0 && score > 0) audio.play('clear');
-    this.shareInfo = { score, level, minderName: this.minder.name, minderImg: this.minderImg, won };
+    if (isBest || won) audio.play('clear');
+    this.shareInfo = {
+      score,
+      level,
+      minderName: this.minders[0].name,
+      minderImg: this.minderImgs[0],
+      won,
+      daily: g.daily ? { day: g.day, stages: stagesCleared, total: DAILY_STAGES.length } : undefined,
+      partnerName: coop ? this.minders[1].name : undefined,
+    };
     this.card = null;
     void buildCard(this.shareInfo).then((b) => {
       this.card = b;
       if (this.cardUrl) URL.revokeObjectURL(this.cardUrl);
       this.cardUrl = b ? URL.createObjectURL(b) : '';
     });
+  }
+
+  /** The Minders cry real tears on game over and jump for joy on a win. */
+  private showEmotes(won: boolean) {
+    const box = document.querySelector('.over-minders')!;
+    box.innerHTML = this.minderImgs
+      .map((img, i) => {
+        const [ex, ey] = this.minders[i].eye;
+        const tears = won
+          ? ''
+          : [0, 1, 2, 3]
+              .map((k) => `<i style="left:calc(${ex * 100}% ${k % 2 ? '+' : '-'} ${12 + (k >> 1) * 6}px);top:${ey * 100 + 4}%;animation-delay:${k * 0.27}s"></i>`)
+              .join('');
+        return `<span class="tears"><img class="hero small ${won ? 'cheering' : 'crying'}" src="${img.src}" alt="" />${tears}</span>`;
+      })
+      .join('');
   }
 
   private async share() {
@@ -396,7 +548,7 @@ class App {
     t.style.color = color;
     t.classList.add('show');
     window.clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => t.classList.remove('show'), 2400);
+    this.toastTimer = window.setTimeout(() => t.classList.remove('show'), Math.max(2400, text.length * 45));
   }
 
   private banner(html: string, ms: number) {
@@ -411,14 +563,17 @@ class App {
   private layout() {
     const playing = this.state !== 'menu';
     const touch = isTouch();
+    const coop = playing && this.mode === 'coop';
     const landscape = touch && window.innerWidth > window.innerHeight * 1.1;
     this.appEl.classList.toggle('landscape', landscape);
+    this.appEl.classList.toggle('coop', coop);
     $('controls').hidden = !(touch && playing);
+    $('pad2').hidden = !coop;
     const r = this.stage.getBoundingClientRect();
     const pad = 6;
     const field: Rect = { x: pad, y: pad, w: r.width - pad * 2, h: r.height - pad * 2 };
     if (landscape && playing) {
-      const side = Math.min(r.width * 0.25, 200);
+      const side = Math.min(r.width * 0.25, coop ? 190 : 200);
       field.x = side;
       field.w = Math.max(100, r.width - side * 2);
     }
@@ -448,13 +603,20 @@ class App {
 
   private updateHud() {
     const g = this.game;
-    this.setText('hud-level', String(g.level));
+    this.setText('hud-level-label', g.daily ? 'STAGE' : 'LEVEL');
+    this.setText('hud-level', g.daily ? `${g.stage + 1}/${DAILY_STAGES.length}` : String(g.level));
     this.setText('hud-score', g.score.toLocaleString('en-US'));
     const s = Math.max(0, Math.ceil(g.timeLeft));
     this.setText('hud-time', `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
     $('hud-time-wrap').classList.toggle('hurry', g.phase === 'play' && s <= 20 && s < LEVEL_TIME);
     this.setText('hud-enemies', String(g.enemiesLeft));
     this.setText('hud-bits', String(g.pelletCount));
+    const bombs = String(g.bombStock);
+    this.setText('hud-bombs', bombs);
+    this.setText('bomb-count', bombs);
+    this.setText('bomb-count2', bombs);
+    $('bomb').classList.toggle('empty', g.bombStock === 0);
+    $('bomb2').classList.toggle('empty', g.bombStock === 0);
     const glitchy = this.state === 'playing' && g.has('roach');
     if (glitchy !== this.glitchy) {
       this.glitchy = glitchy;

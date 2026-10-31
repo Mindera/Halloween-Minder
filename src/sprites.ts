@@ -582,6 +582,35 @@ const drawRabbit: Draw = (g, f) => {
   line(g, [0.04, 0.03 + hop, 0.2, 0.0 + hop], 0.01, '#9e9e9e');
 };
 
+/** A pumpkin bomb: a little jack-o'-lantern with a fuse (f = spark frame). */
+export const drawBomb: Draw = (g, f) => {
+  g.fillStyle = '#d9640a';
+  ellipse(g, -0.13, 0.08, 0.16, 0.24);
+  ellipse(g, 0.13, 0.08, 0.16, 0.24);
+  g.fillStyle = '#ff8c1a';
+  ellipse(g, 0, 0.08, 0.18, 0.26);
+  g.fillStyle = '#3e2723';
+  g.beginPath();
+  g.moveTo(-0.13, 0.0);
+  g.lineTo(-0.05, -0.05);
+  g.lineTo(-0.05, 0.03);
+  g.moveTo(0.13, 0.0);
+  g.lineTo(0.05, -0.05);
+  g.lineTo(0.05, 0.03);
+  g.fill();
+  g.beginPath();
+  g.moveTo(-0.12, 0.13);
+  g.quadraticCurveTo(0, 0.24, 0.12, 0.13);
+  g.lineTo(0, 0.17);
+  g.closePath();
+  g.fill();
+  line(g, [0, -0.17, 0.05, -0.3, 0.14, -0.36], 0.035, '#5d4037');
+  g.fillStyle = f ? '#ffea00' : '#ff3d00';
+  circle(g, 0.15, -0.37, f ? 0.06 : 0.045);
+  g.fillStyle = '#fff';
+  circle(g, 0.15, -0.37, 0.02);
+};
+
 const drawCandy: Draw = (g) => {
   g.fillStyle = '#8e44ad';
   for (const s of [-1, 1]) {
@@ -636,6 +665,7 @@ export const ITEM_ART: Record<ItemKind, Draw> = {
   coffee: drawCoffee,
   roach: drawRoach,
   rabbit: drawRabbit,
+  bomb: drawBomb,
   candy: drawCandy,
   cake: drawCake,
 };

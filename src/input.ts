@@ -1,123 +1,188 @@
-const KEY_DIRS: Record<string, number> = {
-  ArrowUp: 0,
-  KeyW: 0,
-  ArrowRight: 1,
-  KeyD: 1,
-  ArrowDown: 2,
-  KeyS: 2,
-  ArrowLeft: 3,
-  KeyA: 3,
-};
-const FIRE_KEYS = new Set(['Space', 'Enter', 'KeyJ', 'KeyK', 'KeyX', 'KeyZ']);
-
-export class Input {
+/** One player's controls. */
+export class Pad {
   /** Buffered direction: applied at the next junction where it fits. */
   dir = -1;
   fireHeld = false;
   private firePressed = false;
-  private heldKeys = new Set<string>();
-  onPause?: () => void;
-  onMute?: () => void;
-  enabled = false;
+  private bombPressed = false;
 
-  constructor(stage: HTMLElement, dpad: HTMLElement, fire: HTMLElement) {
-    window.addEventListener('keydown', (e) => this.keyDown(e));
-    window.addEventListener('keyup', (e) => this.keyUp(e));
-    window.addEventListener('blur', () => {
-      this.fireHeld = false;
-      this.heldKeys.clear();
-    });
-    this.bindDpad(dpad);
-    this.bindFire(fire);
-    this.bindSwipe(stage);
+  pressFire() {
+    this.firePressed = true;
+    this.fireHeld = true;
   }
 
-  /** True once per press (plus continuous auto-fire while held, handled by the game's cooldown). */
+  pressBomb() {
+    this.bombPressed = true;
+  }
+
+  /** A single shot without holding (tap on the maze). */
+  tapFire() {
+    this.firePressed = true;
+  }
+
+  /** True once per press, and continuously while held (the game's cooldown paces auto-fire). */
   consumeFire(): boolean {
     const f = this.firePressed || this.fireHeld;
     this.firePressed = false;
     return f;
   }
 
+  consumeBomb(): boolean {
+    const b = this.bombPressed;
+    this.bombPressed = false;
+    return b;
+  }
+
   reset() {
     this.dir = -1;
     this.fireHeld = false;
     this.firePressed = false;
+    this.bombPressed = false;
+  }
+}
+
+interface KeyMap {
+  dirs: Record<string, number>;
+  fire: Set<string>;
+  bomb: Set<string>;
+}
+
+const WASD = { KeyW: 0, KeyD: 1, KeyS: 2, KeyA: 3 };
+const ARROWS = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 };
+
+/** Single player: every key drives player 1. */
+const SOLO: KeyMap = {
+  dirs: { ...WASD, ...ARROWS },
+  fire: new Set(['Space', 'Enter', 'KeyJ', 'KeyK', 'KeyX', 'KeyZ']),
+  bomb: new Set(['KeyB', 'KeyE', 'KeyQ', 'ShiftLeft', 'ShiftRight']),
+};
+/** Co-op on one keyboard: P1 on WASD + Space/E, P2 on arrows + Enter/right Shift. */
+const COOP: KeyMap[] = [
+  { dirs: WASD, fire: new Set(['Space', 'KeyF']), bomb: new Set(['KeyE', 'KeyQ', 'ShiftLeft']) },
+  { dirs: ARROWS, fire: new Set(['Enter', 'NumpadEnter', 'KeyL', 'Numpad0']), bomb: new Set(['ShiftRight', 'Slash', 'KeyK']) },
+];
+
+/** Pointer capture keeps a slide on the pad tracked; it can throw for pointers that already ended. */
+function capture(el: HTMLElement, id: number) {
+  try {
+    el.setPointerCapture(id);
+  } catch {
+    /* ignore */
+  }
+}
+
+export interface PadElements {
+  dpad: HTMLElement;
+  fire: HTMLElement;
+  bomb: HTMLElement;
+}
+
+export class Input {
+  pads = [new Pad(), new Pad()];
+  coop = false;
+  enabled = false;
+  onPause?: () => void;
+  onMute?: () => void;
+
+  constructor(stage: HTMLElement, touch: PadElements[]) {
+    window.addEventListener('keydown', (e) => this.key(e, true));
+    window.addEventListener('keyup', (e) => this.key(e, false));
+    window.addEventListener('blur', () => this.pads.forEach((p) => (p.fireHeld = false)));
+    touch.forEach((els, i) => {
+      this.bindDpad(els.dpad, i);
+      this.bindFire(els.fire, i);
+      this.bindBomb(els.bomb, i);
+    });
+    this.bindSwipe(stage);
   }
 
-  private keyDown(e: KeyboardEvent) {
-    if (e.code === 'KeyP' || e.code === 'Escape') {
+  reset() {
+    this.pads.forEach((p) => p.reset());
+  }
+
+  private key(e: KeyboardEvent, down: boolean) {
+    if (down && (e.code === 'KeyP' || e.code === 'Escape')) {
       this.onPause?.();
       return;
     }
-    if (e.code === 'KeyM') {
+    if (down && e.code === 'KeyM') {
       this.onMute?.();
       return;
     }
     if (!this.enabled) return;
-    if (e.code in KEY_DIRS) {
-      this.dir = KEY_DIRS[e.code];
-      this.heldKeys.add(e.code);
-      e.preventDefault();
-    } else if (FIRE_KEYS.has(e.code)) {
-      if (!e.repeat) this.firePressed = true;
-      this.fireHeld = true;
-      e.preventDefault();
-    }
+    const maps = this.coop ? COOP : [SOLO];
+    maps.forEach((map, i) => {
+      const pad = this.pads[i];
+      if (e.code in map.dirs) {
+        if (down) pad.dir = map.dirs[e.code];
+        e.preventDefault();
+      } else if (map.fire.has(e.code)) {
+        if (down && !e.repeat) pad.pressFire();
+        if (!down) pad.fireHeld = false;
+        e.preventDefault();
+      } else if (map.bomb.has(e.code)) {
+        if (down && !e.repeat) pad.pressBomb();
+        e.preventDefault();
+      }
+    });
   }
 
-  private keyUp(e: KeyboardEvent) {
-    this.heldKeys.delete(e.code);
-    if (FIRE_KEYS.has(e.code)) this.fireHeld = false;
-  }
-
-  private bindDpad(pad: HTMLElement) {
+  private bindDpad(el: HTMLElement, i: number) {
     let active: number | null = null;
     const update = (e: PointerEvent) => {
-      const r = pad.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
       const dx = e.clientX - (r.left + r.width / 2);
       const dy = e.clientY - (r.top + r.height / 2);
       if (Math.hypot(dx, dy) < r.width * 0.12) return;
       const d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
-      if (this.enabled) this.dir = d;
-      pad.dataset.dir = String(d);
+      if (this.enabled) this.pads[i].dir = d;
+      el.dataset.dir = String(d);
     };
-    pad.addEventListener('pointerdown', (e) => {
+    el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       active = e.pointerId;
-      pad.setPointerCapture(e.pointerId);
+      capture(el, e.pointerId);
       update(e);
     });
-    pad.addEventListener('pointermove', (e) => {
+    el.addEventListener('pointermove', (e) => {
       if (e.pointerId === active) update(e);
     });
     const end = (e: PointerEvent) => {
       if (e.pointerId !== active) return;
       active = null;
-      delete pad.dataset.dir;
+      delete el.dataset.dir;
     };
-    pad.addEventListener('pointerup', end);
-    pad.addEventListener('pointercancel', end);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
   }
 
-  private bindFire(btn: HTMLElement) {
-    btn.addEventListener('pointerdown', (e) => {
+  private bindFire(el: HTMLElement, i: number) {
+    el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      btn.setPointerCapture(e.pointerId);
-      btn.classList.add('down');
-      if (!this.enabled) return;
-      this.firePressed = true;
-      this.fireHeld = true;
+      capture(el, e.pointerId);
+      el.classList.add('down');
+      if (this.enabled) this.pads[i].pressFire();
     });
     const end = () => {
-      btn.classList.remove('down');
-      this.fireHeld = false;
+      el.classList.remove('down');
+      this.pads[i].fireHeld = false;
     };
-    btn.addEventListener('pointerup', end);
-    btn.addEventListener('pointercancel', end);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
   }
 
-  /** Swipe on the maze to steer, tap it to shoot (handy on tablets). */
+  private bindBomb(el: HTMLElement, i: number) {
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      el.classList.add('down');
+      if (this.enabled) this.pads[i].pressBomb();
+    });
+    const end = () => el.classList.remove('down');
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
+
+  /** Swipe on the maze to steer, tap it to shoot (single player only, handy on tablets). */
   private bindSwipe(stage: HTMLElement) {
     let sx = 0;
     let sy = 0;
@@ -125,7 +190,7 @@ export class Input {
     let t0 = 0;
     let id: number | null = null;
     stage.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'mouse') return;
+      if (e.pointerType === 'mouse' || this.coop) return;
       id = e.pointerId;
       sx = e.clientX;
       sy = e.clientY;
@@ -139,14 +204,14 @@ export class Input {
       const dist = Math.hypot(dx, dy);
       if (dist < 22) return;
       moved += dist;
-      this.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
+      this.pads[0].dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
       sx = e.clientX;
       sy = e.clientY;
     });
     const end = (e: PointerEvent) => {
       if (e.pointerId !== id) return;
       id = null;
-      if (this.enabled && moved === 0 && performance.now() - t0 < 300) this.firePressed = true;
+      if (this.enabled && moved === 0 && performance.now() - t0 < 300) this.pads[0].tapFire();
     };
     stage.addEventListener('pointerup', end);
     stage.addEventListener('pointercancel', () => (id = null));

@@ -28,7 +28,10 @@ export type Sfx =
   | 'firework'
   | 'glitch'
   | 'matrix'
-  | 'boss';
+  | 'boss'
+  | 'fuse'
+  | 'boom'
+  | 'cry';
 
 const NOTE = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
 
@@ -229,6 +232,18 @@ export class SoundBoard {
           this.tone(NOTE(n), n === 39 ? 1.1 : 0.3, 'sawtooth', 0.22, n === 39 ? NOTE(34) : undefined, t);
           this.tone(NOTE(n + 12), n === 39 ? 1.1 : 0.3, 'square', 0.08, undefined, t);
         });
+        break;
+      case 'fuse':
+        this.noise(0.5, 0.2, 5000, 0, 3);
+        this.tone(1200, 0.08, 'square', 0.06, 900);
+        break;
+      case 'boom':
+        this.noise(0.8, 0.7, 180, 0, 0.5);
+        this.noise(0.35, 0.35, 900, 0.02, 0.8);
+        this.tone(90, 0.6, 'sine', 0.45, 35);
+        break;
+      case 'cry':
+        [0, 0.28, 0.56].forEach((t, i) => this.tone(520 - i * 40, 0.25, 'triangle', 0.12, 380 - i * 40, t));
         break;
       case 'firework':
         this.tone(900, 0.7, 'sine', 0.06, 2600);

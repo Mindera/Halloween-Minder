@@ -352,15 +352,23 @@ function addFeatures(m: Maze, rng: Rng, f: MazeFeatures): Maze {
  * `links` maps a tile to the tile it teleports to (or -1), so chasers can use portals.
  */
 export function bfs(m: Maze, sx: number, sy: number, out?: Int16Array, links?: Int32Array): Int16Array {
+  return bfsFrom(m, [{ x: sx, y: sy }], out, links);
+}
+
+/** Multi-source BFS: distance to the nearest of `sources` (used to chase the closest minder in co-op). */
+export function bfsFrom(m: Maze, sources: Point[], out?: Int16Array, links?: Int32Array): Int16Array {
   const { w, h } = m;
   const dist = out ?? new Int16Array(w * h);
   dist.fill(-1);
-  if (isWall(m, sx, sy)) return dist;
   const queue = new Int32Array(w * h);
   let head = 0;
   let tail = 0;
-  queue[tail++] = sy * w + sx;
-  dist[sy * w + sx] = 0;
+  for (const s of sources) {
+    const si = s.y * w + s.x;
+    if (isWall(m, s.x, s.y) || dist[si] === 0) continue;
+    queue[tail++] = si;
+    dist[si] = 0;
+  }
   while (head < tail) {
     const i = queue[head++];
     const x = i % w;

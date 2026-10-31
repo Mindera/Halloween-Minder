@@ -8,6 +8,10 @@ export interface ShareInfo {
   minderName: string;
   minderImg: HTMLImageElement;
   won: boolean;
+  /** Set for the Daily Challenge: the UTC day and how many stages were cleared. */
+  daily?: { day: string; stages: number; total: number };
+  /** Player 2's minder name in co-op. */
+  partnerName?: string;
 }
 
 export function gameUrl(): string {
@@ -17,10 +21,17 @@ export function gameUrl(): string {
 }
 
 export function shareText(i: ShareInfo): string {
-  const what = i.won
-    ? `I beat all 100 levels of Halloween Minder with ${i.score.toLocaleString('en-US')} points`
-    : `I scored ${i.score.toLocaleString('en-US')} points and reached level ${i.level} in Halloween Minder`;
-  return `🎃 ${what} as ${i.minderName}! 👁️ Can you beat me? Happy Halloween. With love, Mindera`;
+  const pts = i.score.toLocaleString('en-US');
+  const who = i.partnerName ? `${i.minderName} & ${i.partnerName}` : i.minderName;
+  const we = i.partnerName ? 'We' : 'I';
+  let what: string;
+  if (i.daily) {
+    const done = i.daily.stages >= i.daily.total ? 'cleared' : `reached stage ${i.daily.stages + 1} of`;
+    what = `${we} ${done} today's Halloween Minder Daily Challenge (${i.daily.day}) with ${pts} points`;
+  } else {
+    what = i.won ? `${we} beat all 100 levels of Halloween Minder with ${pts} points` : `${we} scored ${pts} points and reached level ${i.level} in Halloween Minder`;
+  }
+  return `🎃 ${what} as ${who}! 👁️ Can you beat ${i.partnerName ? 'us' : 'me'}? Happy Halloween. With love, Mindera`;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -87,7 +98,12 @@ export async function buildCard(i: ShareInfo): Promise<Blob | null> {
   g.fill();
   g.fillStyle = '#c9b8e0';
   g.font = '600 40px Fredoka, sans-serif';
-  g.fillText(i.won ? 'ALL 100 LEVELS BEATEN!' : `${i.minderName.toUpperCase()} · LEVEL ${i.level}`, S / 2, 745);
+  const sub = i.daily
+    ? `DAILY CHALLENGE ${i.daily.day} · ${i.daily.stages >= i.daily.total ? 'CLEARED!' : `STAGE ${i.daily.stages + 1}/${i.daily.total}`}`
+    : i.won
+      ? 'ALL 100 LEVELS BEATEN!'
+      : `${(i.partnerName ? `${i.minderName} & ${i.partnerName}` : i.minderName).toUpperCase()} · LEVEL ${i.level}`;
+  g.fillText(sub, S / 2, 745);
   g.fillStyle = '#ffd400';
   g.font = '700 120px Fredoka, sans-serif';
   g.fillText(i.score.toLocaleString('en-US'), S / 2, 840);

@@ -1,8 +1,21 @@
 import { BOSS_PHOTO, ENEMIES } from './config';
-import type { Enemy, Game } from './game';
+import type { Enemy, Game, Player } from './game';
 import { CRATE, DIRS, WALL, type Maze } from './maze';
-import { MONSTER_ART, SpriteBank, bake, drawEyeball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
+import { MONSTER_ART, SpriteBank, bake, drawBomb, drawEyeball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
 import { THEMES, type ThemeArt } from './themes';
+
+const PLAYER_TAGS = ['#ffd400', '#18ffff'];
+
+export interface MinderLook {
+  img: HTMLImageElement;
+  iris: string;
+  /** Eye position in the picture, 0..1. */
+  eye: [number, number];
+}
+
+interface MinderArt extends MinderLook {
+  red: HTMLCanvasElement;
+}
 
 const RAINBOW = ['#ff4081', '#ffd400', '#69f0ae', '#40c4ff', '#e040fb'];
 const PORTAL_COLORS = ['#18ffff', '#ea80fc'];
@@ -139,9 +152,8 @@ export class Renderer {
   private mazeKey = '';
   private tomb?: Sprite;
   private blurOn = false;
-  private minder?: HTMLImageElement;
-  private minderRed?: HTMLCanvasElement;
-  iris = '#3a7bd5';
+  private minders: MinderArt[] = [];
+  private bombSprites: Sprite[] = [];
   private bossPhoto?: HTMLImageElement;
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -153,18 +165,20 @@ export class Renderer {
     }
   }
 
-  setMinder(img: HTMLImageElement, iris: string) {
-    this.minder = img;
-    this.iris = iris;
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth || 256;
-    c.height = img.naturalHeight || 256;
-    const g = c.getContext('2d')!;
-    g.drawImage(img, 0, 0);
-    g.globalCompositeOperation = 'source-atop';
-    g.fillStyle = 'rgba(255,20,0,0.6)';
-    g.fillRect(0, 0, c.width, c.height);
-    this.minderRed = c;
+  /** One look per player (images must already be loaded). */
+  setMinders(looks: MinderLook[]) {
+    this.minders = looks.map((look) => {
+      const img = look.img;
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth || 256;
+      c.height = img.naturalHeight || 256;
+      const g = c.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      g.globalCompositeOperation = 'source-atop';
+      g.fillStyle = 'rgba(255,20,0,0.6)';
+      g.fillRect(0, 0, c.width, c.height);
+      return { ...look, red: c };
+    });
   }
 
   /** `field` is the area (in canvas CSS pixels) the maze may occupy. */
@@ -191,6 +205,7 @@ export class Renderer {
     this.tomb = bake(px, drawTombstone, 1);
     this.crates = [1, 2].map((hp) => bake(px, (g) => drawCrate(g, hp), 1.1, 'rgba(255,170,60,0.55)'));
     this.canopy = bake(px, (g) => drawCanopy(g, false), 3.8);
+    this.bombSprites = [0, 1].map((f) => bake(px, (g) => drawBomb(g, f), 1.3, 'rgba(255,140,0,0.6)'));
     this.canopyParty = bake(px, (g) => drawCanopy(g, true), 3.8);
   }
 
@@ -224,6 +239,7 @@ export class Renderer {
 
     const T = this.tile;
     ctx.save();
+    if (game.shake > 0) ctx.translate((Math.random() - 0.5) * T * game.shake, (Math.random() - 0.5) * T * game.shake);
     if (blur) {
       const cx = this.ox + (m.w * T) / 2;
       const cy = this.oy + (m.h * T) / 2;
@@ -245,6 +261,7 @@ export class Renderer {
       this.drawAmbient(game, theme);
     }
     this.drawItem(game);
+    this.drawBombs(game);
     for (const e of game.enemies) this.drawEnemy(game, e);
     this.drawUmbrellas(game);
     if (matrix) {
@@ -256,10 +273,10 @@ export class Renderer {
     }
     for (const e of game.eyes) {
       const d = DIRS[e.dir];
-      drawEyeball(ctx, e.x * T, e.y * T, T * 0.21, d.x, d.y, this.iris, e.spin);
+      drawEyeball(ctx, e.x * T, e.y * T, T * 0.21, d.x, d.y, this.minders[e.owner]?.iris ?? '#3a7bd5', e.spin);
     }
     this.drawCricketWaves(game);
-    this.drawPlayer(game);
+    for (const p of game.players) this.drawPlayer(game, p);
     this.drawParticles(game);
     this.drawPopups(game);
     ctx.restore();
@@ -716,7 +733,6 @@ export class Renderer {
     const ctx = this.ctx;
     const T = this.tile;
     const art = MONSTER_ART[e.kind];
-    const p = game.player;
     let x = e.x * T;
     let y = e.y * T;
     ctx.save();
@@ -763,8 +779,9 @@ export class Renderer {
     }
     const s = this.bank.monsters.get(`${e.kind}${frame}`)!;
     this.sprite(s, 0, 0);
-    const lookX = (p.x - e.x) * e.face;
-    const lookY = p.y - e.y;
+    const target = game.nearestPlayer(e.x, e.y);
+    const lookX = (target.x - e.x) * e.face;
+    const lookY = target.y - e.y;
     const k = art.scale * T;
     for (const eye of art.eyes) {
       drawGooglyEye(ctx, eye.x * k, eye.y * k, eye.r * k, lookX, lookY, e.wobble + eye.x * 10);
@@ -841,33 +858,46 @@ export class Renderer {
     if (!game.has('cricket')) return;
     const ctx = this.ctx;
     const T = this.tile;
-    const p = game.player;
-    for (let i = 0; i < 3; i++) {
-      const t = (game.time * 1.2 + i / 3) % 1;
-      ctx.strokeStyle = `rgba(178,255,89,${0.6 * (1 - t)})`;
-      ctx.lineWidth = T * 0.08;
-      ctx.beginPath();
-      ctx.arc(p.x * T, p.y * T, t * 3.5 * T, 0, Math.PI * 2);
-      ctx.stroke();
+    for (const p of game.players) {
+      if (!p.alive) continue;
+      for (let i = 0; i < 3; i++) {
+        const t = (game.time * 1.2 + i / 3) % 1;
+        ctx.strokeStyle = `rgba(178,255,89,${0.6 * (1 - t)})`;
+        ctx.lineWidth = T * 0.08;
+        ctx.beginPath();
+        ctx.arc(p.x * T, p.y * T, t * 3.5 * T, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
   }
 
-  private drawPlayer(game: Game) {
-    const img = this.minder;
-    if (!img || !img.complete) return;
+  private drawPlayer(game: Game, p: Player) {
+    const art = this.minders[p.id] ?? this.minders[0];
+    if (!art || !art.img.complete) return;
+    if (!p.alive && p.emoteTime > 2.6) return;
+    const img = art.img;
     const ctx = this.ctx;
     const T = this.tile;
-    const p = game.player;
-    const pig = game.has('pig');
-    const spice = game.has('spice');
+    const t = p.emoteTime;
+    const pig = game.has('pig') && p.alive;
+    const spice = game.has('spice') && p.alive;
     ctx.save();
     ctx.translate(p.x * T, p.y * T);
     let sx = 1;
     let sy = 1;
-    if (game.phase === 'dying' || game.phase === 'over') {
-      const t = game.phase === 'over' ? 0 : Math.max(0, game.phaseTime / 2.4);
-      ctx.rotate((1 - t) * 12);
-      sx = sy = 0.2 + t * 0.8;
+    if (p.emote === 'cheer') {
+      // Jump for joy.
+      ctx.translate(0, -Math.abs(Math.sin(t * 9)) * T * 0.38);
+      ctx.rotate(Math.sin(t * 14) * 0.18);
+      const squash = Math.max(0, Math.cos(t * 9)) * 0.12;
+      sx = 1 + squash;
+      sy = 1 - squash;
+    } else if (p.emote === 'cry') {
+      // Sobbing wobble, slowly sinking into a puddle of tears.
+      ctx.translate(Math.sin(t * 30) * T * 0.04, Math.min(t, 2) * T * 0.04 - T * 0.15);
+      sx = 1.35 + Math.sin(t * 8) * 0.05;
+      sy = 1.35 - Math.min(t, 2) * 0.06;
+      if (!p.alive) ctx.globalAlpha = Math.max(0, 1 - Math.max(0, t - 1.8) / 0.8);
     } else {
       if (p.invuln > 0 && game.phase === 'play' && Math.floor(p.invuln * 10) % 2 === 0) ctx.globalAlpha = 0.45;
       const moving = p.dir >= 0 && game.phase === 'play';
@@ -883,12 +913,19 @@ export class Renderer {
     }
     const h = T * 1.12;
     const w = (h * img.naturalWidth) / img.naturalHeight;
+    if (p.emote === 'cry') {
+      ctx.fillStyle = 'rgba(100,181,246,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(0, h * 0.48, Math.min(t, 2) * T * 0.35 + T * 0.1, T * 0.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     if (spice) {
       ctx.shadowColor = '#ff1a00';
       ctx.shadowBlur = T * 0.6;
     }
-    ctx.scale(sx * (p.face === 3 ? -1 : 1), sy);
-    ctx.drawImage(spice && this.minderRed ? this.minderRed : img, -w / 2, -h / 2, w, h);
+    const flip = p.face === 3 ? -1 : 1;
+    ctx.scale(sx * flip, sy);
+    ctx.drawImage(spice ? art.red : img, -w / 2, -h / 2, w, h);
     ctx.shadowBlur = 0;
     if (pig) {
       ctx.fillStyle = '#f48fb1';
@@ -901,12 +938,80 @@ export class Renderer {
       ctx.ellipse(w * 0.05 + T * 0.05, h * 0.2, T * 0.025, T * 0.04, 0, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (p.emote === 'cry') {
+      // Two streams of tears from the eye.
+      const ex = (art.eye[0] - 0.5) * w;
+      const ey = (art.eye[1] - 0.5) * h + h * 0.06;
+      for (let k = 0; k < 8; k++) {
+        const side = k % 2 ? 1 : -1;
+        const f = (t * 2.2 + k / 8) % 1;
+        const tx = ex + side * (T * 0.14 + f * T * 0.3);
+        const ty = ey + f * h * 0.6;
+        ctx.fillStyle = `rgba(79,195,247,${1 - f * 0.55})`;
+        ctx.beginPath();
+        ctx.ellipse(tx, ty, T * 0.08, T * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(255,255,255,${0.8 - f * 0.5})`;
+        ctx.beginPath();
+        ctx.arc(tx - T * 0.025, ty - T * 0.04, T * 0.025, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     ctx.restore();
-    if (game.phase === 'dying') {
-      ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.round(T * 0.5)}px Fredoka, sans-serif`;
+    if (p.emote !== 'none' && t < 1.6) {
+      const text = p.emote === 'cheer' ? (p.id ? 'WOOHOO!' : 'YAY!') : 'WAAAH!';
+      this.bubble(p.x * T, p.y * T - T * 1.05, text, p.emote === 'cheer' ? '#ffd400' : '#81d4fa');
+    }
+    if (game.coop && p.alive && p.emote === 'none') {
+      const tag = `P${p.id + 1}`;
+      ctx.font = `bold ${Math.max(9, Math.round(T * 0.32))}px Fredoka, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText('x_x', p.x * T, p.y * T - T * 0.8);
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = Math.max(2, T * 0.08);
+      ctx.strokeStyle = '#1a0b2e';
+      ctx.strokeText(tag, p.x * T, p.y * T - T * 0.78);
+      ctx.fillStyle = PLAYER_TAGS[p.id];
+      ctx.fillText(tag, p.x * T, p.y * T - T * 0.78);
+    }
+  }
+
+  private bubble(x: number, y: number, text: string, color: string) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    ctx.font = `bold ${Math.max(10, Math.round(T * 0.36))}px Fredoka, sans-serif`;
+    const w = ctx.measureText(text).width + T * 0.4;
+    const h = T * 0.5;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+    ctx.moveTo(x - T * 0.08, y + h / 2 - 1);
+    ctx.lineTo(x, y + h / 2 + T * 0.14);
+    ctx.lineTo(x + T * 0.08, y + h / 2 - 1);
+    ctx.fill();
+    ctx.fillStyle = '#1a0b2e';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y + 1);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+    ctx.stroke();
+  }
+
+  private drawBombs(game: Game) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    for (const b of game.bombs) {
+      const urgent = b.fuse < 0.7;
+      const pulse = 1 + Math.sin(game.time * (urgent ? 40 : 14)) * (urgent ? 0.12 : 0.05);
+      this.sprite(this.bombSprites[Math.floor(game.time * 12) % 2], b.x * T, b.y * T, pulse);
+      if (urgent && Math.floor(game.time * 16) % 2 === 0) {
+        ctx.fillStyle = 'rgba(255,60,0,0.35)';
+        ctx.beginPath();
+        ctx.arc(b.x * T, b.y * T, T * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
@@ -940,6 +1045,18 @@ export class Renderer {
           ctx.arc(x, y, s, 0, Math.PI * 2);
           ctx.fill();
           break;
+        case 'shock': {
+          const k = 1 - p.life / p.max;
+          ctx.globalAlpha = Math.max(0, 1 - k);
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = T * 0.25 * (1 - k) + 1;
+          ctx.beginPath();
+          ctx.arc(x, y, p.size * T * (0.3 + k * 0.8), 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = `rgba(255,200,80,${0.3 * (1 - k)})`;
+          ctx.fill();
+          break;
+        }
         case 'debris':
           ctx.save();
           ctx.translate(x, y);

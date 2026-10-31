@@ -2,6 +2,8 @@ export interface ScoreEntry {
   score: number;
   level: number;
   minder: string;
+  /** Player 2's minder in co-op games. */
+  minder2?: string;
   date: string;
 }
 
@@ -49,4 +51,38 @@ export function saveMinder(id: string) {
   } catch {
     /* ignore */
   }
+}
+
+export interface DailyEntry {
+  score: number;
+  /** Stages cleared (3 = completed). */
+  stages: number;
+  minder: string;
+}
+
+const DAILY_KEY = 'hm.daily';
+
+/** Best Daily Challenge result per UTC day (last 30 days kept). */
+export function loadDaily(): Record<string, DailyEntry> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DAILY_KEY) ?? '{}');
+    return raw && typeof raw === 'object' ? (raw as Record<string, DailyEntry>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Saves today's run if it beats today's best; returns true when it is a new best. */
+export function saveDaily(day: string, entry: DailyEntry): boolean {
+  const all = loadDaily();
+  const prev = all[day];
+  if (prev && prev.score >= entry.score) return false;
+  all[day] = entry;
+  const keep = Object.keys(all).sort().slice(-30);
+  try {
+    localStorage.setItem(DAILY_KEY, JSON.stringify(Object.fromEntries(keep.map((k) => [k, all[k]]))));
+  } catch {
+    /* ignore */
+  }
+  return true;
 }

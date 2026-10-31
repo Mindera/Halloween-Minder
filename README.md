@@ -7,12 +7,19 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 - Web: <https://mindera.github.io/Halloween-Minder/> (deployed automatically from `main`)
 - iOS / Android: Capacitor wrappers in `ios/` and `android/`, ready for store builds
 
+## Modes
+
+- **Arcade**: 100 levels, getting harder all the way.
+- **Daily Challenge**: three stages (difficulty of levels 4, 7 and 10, the last one with the boss) on a fixed 15×21 maze. Everyone in the world gets exactly the same mazes, theme, monster order and items on the same UTC day. It has its own best score per day.
+- **2 Players** (tablets and computers, screens at least 600px on the short side): co-op with two Minders and a shared team score. On touch screens each player gets their own pad (P1 left, P2 right). On a keyboard, P1 uses WASD + Space (fire) + E (bomb) and P2 uses the arrows + Enter (fire) + right Shift (bomb). If one player gets caught, the other keeps playing and the caught player comes back next level.
+
 ## How to play
 
 | | Touch | Keyboard |
 |---|---|---|
 | Move | D-pad, or swipe on the maze | Arrows / WASD |
 | Shoot an eyeball | FIRE (hold for auto-fire), or tap the maze | Space / Enter / J / K |
+| Drop a pumpkin bomb | BOMB | B / E / Q / Shift |
 | Pause | ❚❚ button | P / Esc |
 | Mute | 🔊 button | M |
 
@@ -26,6 +33,8 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
   - 🌀 **Portals** (from level 2) teleport the Minder, the monsters and even your eyeballs.
   - ☂️ **Umbrellas** (from level 3) pop open when a monster walks under them and hide whatever is underneath.
 - **Ultimate boss: Palos' cousin.** A perfectly normal person who arrives last on every 10th level (including level 100), takes 10 eyeballs, can't be zapped by the cricket and has a health bar. To use a real photo instead of the cartoon, put the image in `public/` and set `BOSS_PHOTO` in `src/config.ts`.
+- 🎃 **Pumpkin bombs** explode 2 seconds after you drop them: they smash every crate and bonk every monster nearby (Palos' cousin loses 3 hit points), with chain reactions. Minders are safe. You start with 3, get +1 per level (up to 5), and the Pumpkin Bombs bonus item gives +2.
+- **Minder emotes**: your Minder jumps for joy with a "YAY!" when you clear a level, and bursts into tears with a "WAAAH!" when it's caught. On the game-over screen it is still sobbing.
 - When you die, the game-over screen shows your score and high score (top 10, stored on the device), with a **Share** button. Share uses the native share sheet on iOS/Android, Web Share on mobile browsers (with a generated score-card image), or WhatsApp / X / Facebook / LinkedIn / copy links as a fallback.
 
 ### Bonus items (appear for 10–15 s, last 10 s)
@@ -43,6 +52,7 @@ Items come out of a shuffled bag, so you see every item before any repeats.
 | ☕ Coffee | Rapid-fire eyeballs |
 | 🪳 Cockroach | "Ups, we found a bug!" The screen glitches and the controls get scrambled (they reshuffle every few seconds) |
 | 🐇 White Rabbit | It hops away from you. Catch it and the maze turns into the Matrix: green code, digital rain |
+| 🎃 Pumpkin Bombs | +2 bombs |
 | 🍬 Candy | +1000 points |
 | 🎂 Cake | Level 12 only, +1200 points |
 
