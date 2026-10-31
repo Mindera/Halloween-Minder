@@ -20,6 +20,10 @@ import { Game } from './game';
 import { LANGS, detectLang, getLang, say, setLang, t, ta, type Lang } from './i18n';
 import { Input } from './input';
 import { pickDims } from './maze';
+import { PairScreen } from './net/pair';
+import { NetSession } from './net/session';
+import type { Ctl } from './net/protocol';
+import type { Transport } from './net/transport';
 import {
   COSTUMES,
   STICKERS,
@@ -47,12 +51,17 @@ const minderSrc = (id: string) => `${import.meta.env.BASE_URL}minders/${id}.png`
 const isTouch = () => window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 /** Co-op needs room for two people: tablets and computers. */
 const bigScreen = () => Math.min(window.innerWidth, window.innerHeight) >= 600;
-const SCREENS = ['screen-title', 'screen-select', 'screen-help', 'screen-scores', 'screen-lang', 'screen-settings', 'screen-stickers', 'screen-pause', 'screen-over'];
+/** Development: `?net` offers two-device play anywhere, `?net=loop` pairs two tabs of this browser. */
+const devNet = import.meta.env.DEV ? new URLSearchParams(location.search).get('net') : null;
+/** Phones play 2 Players across two phones (experimental); tablets and computers share one screen. */
+const netCoop = () => devNet !== null || (isTouch() && !bigScreen());
+const SCREENS = ['screen-title', 'screen-net', 'screen-select', 'screen-help', 'screen-scores', 'screen-lang', 'screen-settings', 'screen-stickers', 'screen-pause', 'screen-over'];
 const minderName = (id: string) => t(`minders.${id}.name`);
 const P2_KEY = 'hm.minder2';
 
 type State = 'menu' | 'playing' | 'paused' | 'over';
-type Mode = 'arcade' | 'daily' | 'coop';
+/** `net`: 2 Players across two phones. */
+type Mode = 'arcade' | 'daily' | 'coop' | 'net';
 
 
 class App {
@@ -87,6 +96,9 @@ class App {
   private shareInfo?: ShareInfo;
   private wakeLock: { release(): Promise<void> } | null = null;
   private iconCache = new Map<string, HTMLCanvasElement>();
+  /** The link to the other phone in a networked game. */
+  private net: NetSession | null = null;
+  private pair = new PairScreen((text, color) => this.toast(text, color), devNet === 'loop');
   private lastBoing = 0;
   /** Title Minder throws in a row: the third one, once it lands back home, opens the secret climb. */
   private throws = 0;
@@ -107,12 +119,30 @@ class App {
     this.game = new Game(
       this.input,
       {
-        toast: (m, c) => this.toast(say(m), c),
-        levelIntro: (l) => this.onLevelIntro(l),
-        event: (e) => this.onEvent(e),
-        levelClear: (l, b) => this.onLevelClear(l, b),
-        gameOver: (r) => this.onGameOver(say(r), false),
-        victory: () => this.onGameOver(t(this.game.daily ? 'over.wonDaily' : 'over.wonArcade'), true),
+        toast: (m, c) => {
+          this.toast(say(m), c);
+          this.relay({ t: 'toast', m, c });
+        },
+        levelIntro: (l) => {
+          if (this.net?.isHost) this.net.sendLevel();
+          this.onLevelIntro(l);
+        },
+        event: (e) => {
+          this.onEvent(e);
+          this.relay({ t: 'event', e });
+        },
+        levelClear: (l, b) => {
+          this.onLevelClear(l, b);
+          this.relay({ t: 'clear', level: l, bonus: b });
+        },
+        gameOver: (r) => {
+          this.relay({ t: 'over', reason: r, won: false });
+          this.onGameOver(say(r), false);
+        },
+        victory: () => {
+          this.relay({ t: 'over', reason: '', won: true });
+          this.onGameOver(t(this.game.daily ? 'over.wonDaily' : 'over.wonArcade'), true);
+        },
       },
       () => pickDims(this.field.w, this.field.h),
     );
@@ -128,6 +158,8 @@ class App {
 
     this.input.onPause = () => (this.state === 'playing' ? this.pause() : this.state === 'paused' ? this.resume() : undefined);
     this.input.onMute = () => this.toggleMute();
+    this.pair.onConnected = (link, host) => this.beginNet(link, host);
+    window.addEventListener('pagehide', () => this.endNet());
     this.bindUi();
     this.buildFloaters();
     this.layout();
@@ -188,6 +220,10 @@ class App {
     click('btn-pause', () => this.pause());
     click('btn-resume', () => this.resume());
     click('btn-quit', () => this.toMenu());
+    click('btn-net-back', () => {
+      this.pair.cancel();
+      this.toTitle();
+    });
     click('btn-again', () => this.startGame());
     click('btn-change', () => this.openPicker(this.mode));
     click('btn-share', () => void this.share());
@@ -199,8 +235,8 @@ class App {
     document.querySelectorAll<HTMLElement>('[data-back]').forEach((b) =>
       b.addEventListener('click', () => {
         audio.play('click');
-        this.refreshTitle();
-        this.show('screen-title');
+        this.endNet();
+        this.toTitle();
       }),
     );
     this.updateMuteIcon();
@@ -217,7 +253,7 @@ class App {
   }
 
   private loadMinderImages() {
-    const players = this.mode === 'coop' ? 2 : 1;
+    const players = this.mode === 'coop' || this.mode === 'net' ? 2 : 1;
     const imgs = this.minders.slice(0, players).map((m) => {
       const img = new Image();
       img.src = minderSrc(m.id);
@@ -428,12 +464,31 @@ class App {
     const best = loadDaily()[day];
     $('daily-sub').textContent = best ? t('title.dailyBest', { score: best.score.toLocaleString('en-US') }) : t('title.dailySub', { day });
     const big = bigScreen();
-    $('btn-coop').classList.toggle('unavailable', !big);
-    $('btn-coop').setAttribute('aria-disabled', String(!big));
-    $('coop-sub').textContent = t(big ? 'title.coopSub' : 'title.coopSubSmall');
+    const net = netCoop();
+    $('btn-coop').classList.toggle('unavailable', !big && !net);
+    $('btn-coop').setAttribute('aria-disabled', String(!big && !net));
+    $('coop-sub').textContent = t(net ? 'net.sub' : big ? 'title.coopSub' : 'title.coopSubSmall');
+    $('coop-exp').hidden = !net;
+  }
+
+  private toTitle() {
+    this.refreshTitle();
+    this.show('screen-title');
   }
 
   private openPicker(mode: Mode) {
+    if (mode === 'coop' && netCoop()) {
+      $<HTMLTextAreaElement>('net-paste-text').placeholder = t('net.pasteHere');
+      this.pair.open();
+      this.show('screen-net');
+      return;
+    }
+    if (mode === 'net') {
+      // "Change Minder" after a networked game: both phones go back to picking.
+      this.net?.send({ t: 'lobby' });
+      this.openLobby();
+      return;
+    }
     if (mode === 'coop' && !bigScreen()) {
       // Shown but disabled on phones: explain instead of starting.
       this.toast(t('title.coopNeedsBig'), '#80deea');
@@ -449,19 +504,30 @@ class App {
 
   private refreshPicker() {
     const coop = this.mode === 'coop';
+    const net = this.mode === 'net';
+    const two = coop || net;
     $('select-title').textContent = coop ? t(this.picking === 0 ? 'select.p1' : 'select.p2') : t('select.title');
     const sub = $('select-sub');
-    sub.hidden = !coop && this.mode !== 'daily';
-    sub.textContent = coop ? t('select.coopSub') : t('select.dailySub', { day: dailyKey(), n: DAILY_STAGES.length });
+    sub.hidden = !two && this.mode !== 'daily';
+    sub.textContent = coop
+      ? t('select.coopSub')
+      : net
+        ? t(this.net?.isHost ? 'net.youP1' : 'net.youP2')
+        : t('select.dailySub', { day: dailyKey(), n: DAILY_STAGES.length });
+    // On the guest phone the host starts the game.
+    const waiting = net && !this.net?.isHost;
+    const go = $<HTMLButtonElement>('btn-go');
+    go.disabled = waiting;
+    go.textContent = t(waiting ? 'net.waitHost' : 'select.go');
     $('minder-grid')
       .querySelectorAll<HTMLElement>('.minder-card')
       .forEach((card) => {
         const id = card.dataset.id;
         card.classList.toggle('selected', id === this.minders[0].id);
-        card.classList.toggle('selected2', coop && id === this.minders[1].id);
+        card.classList.toggle('selected2', two && id === this.minders[1].id);
         card.querySelectorAll('.badge').forEach((b) => b.remove());
-        if (coop && id === this.minders[0].id) card.insertAdjacentHTML('beforeend', '<span class="badge p1">P1</span>');
-        if (coop && id === this.minders[1].id) card.insertAdjacentHTML('beforeend', '<span class="badge p2">P2</span>');
+        if (two && id === this.minders[0].id) card.insertAdjacentHTML('beforeend', '<span class="badge p1">P1</span>');
+        if (two && id === this.minders[1].id) card.insertAdjacentHTML('beforeend', '<span class="badge p2">P2</span>');
       });
   }
 
@@ -477,8 +543,11 @@ class App {
       card.addEventListener('click', () => {
         audio.unlock();
         audio.play('click');
-        this.setMinder(this.mode === 'coop' ? this.picking : 0, m);
-        if (this.mode === 'coop') this.picking = 1 - this.picking;
+        if (this.mode === 'net') this.pickNetMinder(m);
+        else {
+          this.setMinder(this.mode === 'coop' ? this.picking : 0, m);
+          if (this.mode === 'coop') this.picking = 1 - this.picking;
+        }
         this.refreshPicker();
       });
       card.addEventListener('dblclick', () => this.startGame());
@@ -581,6 +650,12 @@ class App {
   // ------------------------------------------------------------ game flow
 
   private startGame() {
+    if (this.mode === 'net') {
+      if (!this.net) return this.toTitle();
+      // The guest phone waits for the host to start.
+      if (!this.net.isHost) return;
+      this.net.send({ t: 'start', minders: [this.minders[0].id, this.minders[1].id] });
+    }
     audio.unlock();
     if (this.mode === 'coop' && !bigScreen()) this.mode = 'arcade';
     this.loadMinderImages();
@@ -597,22 +672,27 @@ class App {
       img.src = minderSrc(ghost.minder);
       this.renderer.setGhostImage(img);
     } else this.renderer.setGhostImage(undefined);
-    this.game.start({ mode: this.mode === 'daily' ? 'daily' : 'arcade', players: this.mode === 'coop' ? 2 : 1 });
+    this.game.start({ mode: this.mode === 'daily' ? 'daily' : 'arcade', players: this.mode === 'coop' || this.mode === 'net' ? 2 : 1 });
     this.input.enabled = true;
     audio.startMusic('spooky');
     void this.keepAwake(true);
   }
 
-  private pause() {
+  /** `fromPartner`: the other phone paused (so don't tell it back). */
+  private pause(fromPartner = false) {
     if (this.state !== 'playing') return;
     this.state = 'paused';
     this.input.enabled = false;
     audio.stopMusic();
+    $('pause-note').hidden = true;
+    $('btn-resume').hidden = false;
     this.show('screen-pause');
+    if (!fromPartner) this.net?.send({ t: 'pause' });
   }
 
-  private resume() {
-    if (this.state !== 'paused') return;
+  private resume(fromPartner = false) {
+    if (this.state !== 'paused' || (this.mode === 'net' && !this.net)) return;
+    if (!fromPartner) this.net?.send({ t: 'resume' });
     this.state = 'playing';
     this.input.enabled = true;
     this.input.reset();
@@ -623,6 +703,7 @@ class App {
   }
 
   private toMenu() {
+    this.endNet();
     this.state = 'menu';
     this.input.enabled = false;
     audio.stopMusic();
@@ -664,7 +745,7 @@ class App {
     const quip = quips[(level - 1) % quips.length];
     this.banner(`<div class="big">${t('banner.level', { n: level })}</div>${theme}<div class="small">${quip}</div>`, 2400);
     if (level === ANNIVERSARY_LEVEL + 1 || level === SQUID_LEVEL + 1 || level === 1) audio.startMusic('spooky');
-    if (level === 1 && g.coop && !isTouch()) {
+    if (level === 1 && this.mode === 'coop' && !isTouch()) {
       window.setTimeout(() => this.toast(t('banner.keys'), '#18ffff'), 2500);
     }
   }
@@ -718,6 +799,11 @@ class App {
     $('over-new').textContent = t(g.daily ? 'over.newDaily' : 'over.newHigh');
     $('share-fallback').hidden = true;
     $('banner').innerHTML = '';
+    // In a networked game only the host starts the next one.
+    const waiting = this.mode === 'net' && !this.net?.isHost;
+    const again = $<HTMLButtonElement>('btn-again');
+    again.disabled = waiting;
+    again.textContent = t(waiting ? 'net.waitHost' : 'over.again');
     this.show('screen-over');
     if (isBest || won) audio.play('clear');
     this.shareInfo = {
@@ -782,6 +868,113 @@ class App {
     }
   }
 
+  // ------------------------------------------------------------ two phones (experimental)
+
+  private beginNet(link: Transport, host: boolean) {
+    this.endNet();
+    this.net = new NetSession(host, link, this.game, this.input, {
+      hello: (id) => this.partnerMinder(id),
+      minder: (id) => this.partnerMinder(id),
+      lobby: () => this.openLobby(),
+      start: (ids) => this.startGuest(ids),
+      levelIntro: (l) => this.onLevelIntro(l),
+      levelClear: (l, b) => this.onLevelClear(l, b),
+      toast: (m, c) => this.toast(say(m), c),
+      event: (e) => this.onEvent(e),
+      over: (reason, won) => this.onGameOver(won ? t('over.wonArcade') : say(reason), won),
+      pause: () => this.pause(true),
+      resume: () => this.resume(true),
+      lost: () => this.partnerLost(t('net.left')),
+      mismatch: () => {
+        this.net = null;
+        this.mode = 'arcade';
+        this.toTitle();
+        this.toast(t('net.mismatch'), '#ff8a80');
+      },
+    });
+    const mine = MINDERS.find((m) => m.id === loadMinder()) ?? MINDERS[0];
+    this.minders[host ? 0 : 1] = mine;
+    this.net.hello(mine.id);
+    this.openLobby();
+  }
+
+  /** Both phones pick their own Minder; the host starts. */
+  private openLobby() {
+    if (!this.net) return this.toTitle();
+    this.mode = 'net';
+    this.loadMinderImages();
+    this.refreshPicker();
+    this.buildWardrobe();
+    this.show('screen-select');
+  }
+
+  private pickNetMinder(m: MinderDef) {
+    if (!this.net) return;
+    this.minders[this.net.isHost ? 0 : 1] = m;
+    saveMinder(m.id);
+    this.loadMinderImages();
+    this.net.send({ t: 'minder', id: m.id });
+  }
+
+  private partnerMinder(id: string) {
+    const m = MINDERS.find((x) => x.id === id);
+    if (!m || !this.net) return;
+    this.minders[this.net.isHost ? 1 : 0] = m;
+    this.loadMinderImages();
+    if (!$('screen-select').hidden) this.refreshPicker();
+  }
+
+  /** Guest phone: the host started a game, so show it here too. */
+  private startGuest(ids: [string, string]) {
+    // Only the host's own pick: ours may have changed after the host sent this (the host gets it next).
+    const host = MINDERS.find((x) => x.id === ids[0]);
+    if (host) this.minders[0] = host;
+    this.mode = 'net';
+    audio.unlock();
+    this.loadMinderImages();
+    this.show(null);
+    this.state = 'playing';
+    $('hud').hidden = false;
+    $('share-fallback').hidden = true;
+    this.input.coop = false;
+    this.input.reset();
+    this.layout();
+    this.game.ghostRun = null;
+    this.renderer.setGhostImage(undefined);
+    this.input.enabled = true;
+    audio.startMusic('spooky');
+    void this.keepAwake(true);
+    this.last = performance.now();
+  }
+
+  /** Host only: passes a game callback on to the other phone. */
+  private relay(msg: Ctl) {
+    if (this.net?.isHost) this.net.send(msg);
+  }
+
+  private endNet() {
+    if (this.mode === 'net') this.mode = 'arcade';
+    const net = this.net;
+    if (!net) return;
+    this.net = null;
+    net.close();
+  }
+
+  /** The other phone left: mid-game, stop on the pause screen with only "Quit to menu". */
+  private partnerLost(msg: string) {
+    this.net = null;
+    if (this.state === 'playing' || this.state === 'paused') {
+      this.pause(true);
+      $('pause-note').textContent = msg;
+      $('pause-note').hidden = false;
+      $('btn-resume').hidden = true;
+      return;
+    }
+    this.mode = 'arcade';
+    this.toMenu();
+    this.toast(msg, '#ff8a80');
+  }
+
   // ------------------------------------------------------------ overlays
 
   /** Shows a message; `queued` ones (stickers, unlocks) wait for the current one instead of replacing it. */
@@ -839,7 +1032,9 @@ class App {
       const steps = Math.max(1, Math.ceil(dt / (1 / 60)));
       for (let i = 0; i < steps; i++) this.game.update(dt / steps);
     }
-    if (this.state !== 'menu') {
+    this.net?.frame(t, dt, this.state === 'playing');
+    // The guest phone has nothing to draw until the host's first level arrives.
+    if (this.state !== 'menu' && this.game.maze) {
       this.renderer.render(this.game);
       this.updateHud();
     }

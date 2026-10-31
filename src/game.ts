@@ -190,6 +190,25 @@ export interface GameCallbacks {
   event(e: GameEvent): void;
 }
 
+/** Everything the other phone needs to show a new level in a networked game. */
+export interface LevelInfo {
+  mode: GameMode;
+  level: number;
+  stage: number;
+  day: string;
+  theme: ThemeId;
+  w: number;
+  h: number;
+  walls: number[];
+  pellets: number[];
+  crateHp: number[];
+  spawns: Point[];
+  start: Point;
+  portals: [Point, Point][];
+  umbrellas: Point[];
+  doors: Point[];
+}
+
 export interface StartOptions {
   mode: GameMode;
   players: 1 | 2;
@@ -379,11 +398,7 @@ export class Game {
     const features = featuresFor(level);
     this.maze = this.party ? generateAnniversaryMaze(w, h, rng, features) : generateMaze(w, h, rng, features);
     const m = this.maze;
-    this.links = new Int32Array(w * h).fill(-1);
-    for (const [a, b] of m.portals) {
-      this.links[a.y * w + a.x] = b.y * w + b.x;
-      this.links[b.y * w + b.x] = a.y * w + a.x;
-    }
+    this.linkPortals();
     this.crateHp = new Uint8Array(w * h);
     for (let i = 0; i < w * h; i++) if (m.walls[i] === CRATE) this.crateHp[i] = CRATE_HP;
     this.umbrellas = m.umbrellas.map((u) => ({ x: u.x + 0.5, y: u.y + 0.5, open: 0, cool: 0, anim: 0 }));
@@ -455,6 +470,73 @@ export class Game {
     this.phase = 'intro';
     this.phaseTime = 2.4;
     this.cb.levelIntro(level);
+  }
+
+  private linkPortals() {
+    const { w, h, portals } = this.maze;
+    this.links = new Int32Array(w * h).fill(-1);
+    for (const [a, b] of portals) {
+      this.links[a.y * w + a.x] = b.y * w + b.x;
+      this.links[b.y * w + b.x] = a.y * w + a.x;
+    }
+  }
+
+  /** The level as it is right now, for the other phone in a networked game. */
+  levelInfo(): LevelInfo {
+    const m = this.maze;
+    return {
+      mode: this.mode,
+      level: this.level,
+      stage: this.stage,
+      day: this.day,
+      theme: this.theme,
+      w: m.w,
+      h: m.h,
+      walls: [...m.walls],
+      pellets: [...this.pellets],
+      crateHp: [...this.crateHp],
+      spawns: m.spawns,
+      start: m.start,
+      portals: m.portals,
+      umbrellas: m.umbrellas,
+      doors: m.doors,
+    };
+  }
+
+  /** Shows a level the host phone just started (remote only: monsters and minders come in with the snapshots). */
+  loadLevel(l: LevelInfo) {
+    this.mode = l.mode;
+    this.coop = true;
+    this.level = l.level;
+    this.stage = l.stage;
+    this.day = l.day;
+    this.theme = l.theme;
+    this.maze = {
+      w: l.w, h: l.h, walls: Uint8Array.from(l.walls), spawns: l.spawns, start: l.start,
+      portals: l.portals, umbrellas: l.umbrellas, doors: l.doors,
+    };
+    this.linkPortals();
+    this.pellets = Int8Array.from(l.pellets);
+    this.pelletCount = l.pellets.filter((p) => p >= 0).length;
+    this.crateHp = Uint8Array.from(l.crateHp);
+    this.umbrellas = l.umbrellas.map((u) => ({ x: u.x + 0.5, y: u.y + 0.5, open: 0, cool: 0, anim: 0 }));
+    this.doors = l.doors.map((d) => ({ x: d.x, y: d.y, open: false }));
+    this.players = [];
+    this.enemies = [];
+    this.eyes = [];
+    this.bombs = [];
+    this.pets = [];
+    this.petShots = [];
+    this.item = null;
+    this.popups = [];
+    this.effects.clear();
+    this.scare = 0;
+    this.reverse = 0;
+    this.light = 'green';
+    this.lightLeft = this.lightLen = 0;
+    this.zaps = [];
+    this.ghost = null;
+    this.phase = 'intro';
   }
 
   private buildQueue(): EnemyKind[] {

@@ -12,6 +12,7 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 - **Arcade**: 100 levels, getting harder all the way.
 - **Daily Challenge**: three stages (difficulty of levels 4, 7 and 10, the last one with the boss) on a fixed 15×21 maze. Everyone in the world gets exactly the same mazes, theme, monster order and items on the same UTC day. It has its own best score per day.
 - **2 Players** (tablets and computers, screens at least 600px on the short side): co-op with two Minders and a shared team score. On touch screens each player gets their own pad (P1 left, P2 right). On a keyboard, P1 uses WASD + Space (fire) + E (bomb) and P2 uses the arrows + Enter (fire) + right Shift (bomb). If one player gets caught, the other keeps playing and the caught player comes back next level.
+- **2 Players on two phones** (experimental, phones only): one phone hosts and shows a QR code, the other joins by scanning it and shows a code back for the host to scan (or the codes can be copied and pasted through a chat app). There's no server: the phones talk directly over WebRTC, so both must be on the same Wi-Fi or one phone's hotspot, and office or guest Wi-Fi that isolates devices won't work. The host phone runs the game and streams it to the other phone (`src/net/`). For development, `?net` offers this mode on any screen, and `?net=loop` pairs two tabs of the same browser without WebRTC.
 
 ## Extras
 

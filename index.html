@@ -97,7 +97,7 @@
           <div class="modes">
             <button class="btn primary mode" id="btn-arcade"><span data-i18n="title.arcade">ARCADE</span><small data-i18n="title.arcadeSub">100 levels of spooky fun</small></button>
             <button class="btn mode daily" id="btn-daily"><span data-i18n="title.daily">DAILY CHALLENGE</span><small id="daily-sub"></small></button>
-            <button class="btn mode coop" id="btn-coop"><span data-i18n="title.coop">2 PLAYERS</span><small id="coop-sub"></small></button>
+            <button class="btn mode coop" id="btn-coop"><span data-i18n="title.coop">2 PLAYERS</span><small id="coop-sub"></small><span class="exp-tag" id="coop-exp" data-i18n="net.experimental" hidden>EXPERIMENTAL</span></button>
           </div>
           <div class="row">
             <button class="btn" id="btn-help" data-i18n="title.help">How to play</button>
@@ -128,6 +128,31 @@
         </div>
       </section>
 
+      <section class="screen" id="screen-net" hidden>
+        <div class="panel scroll net-panel">
+          <h2 class="spooky" data-i18n="title.coop">2 PLAYERS</h2>
+          <span class="exp-tag" data-i18n="net.experimental">EXPERIMENTAL</span>
+          <p class="sub" id="net-msg" aria-live="polite"></p>
+          <div class="modes" id="net-roles">
+            <button class="btn mode coop" id="btn-net-host"><span data-i18n="net.host">HOST</span><small data-i18n="net.hostSub">Show a code to your partner</small></button>
+            <button class="btn mode daily" id="btn-net-join"><span data-i18n="net.join">JOIN</span><small data-i18n="net.joinSub">Scan your partner's code</small></button>
+          </div>
+          <div class="qr" id="net-qr" hidden></div>
+          <div class="scanner" id="net-scanner" hidden><video id="net-video" playsinline muted></video></div>
+          <div class="net-paste" id="net-paste" hidden>
+            <textarea id="net-paste-text" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+            <button class="btn" id="btn-net-paste-ok" data-i18n="net.connect">Connect</button>
+          </div>
+          <div class="row">
+            <button class="btn" id="btn-net-scan" hidden><span aria-hidden="true">📷</span> <span data-i18n="net.scan">Scan their code</span></button>
+            <button class="btn" id="btn-net-copy" hidden data-i18n="net.copy">Share code</button>
+            <button class="btn" id="btn-net-paste" hidden data-i18n="net.paste">Paste a code</button>
+          </div>
+          <p class="hint" data-i18n="net.wifi">Both phones need the same Wi-Fi, or one phone's hotspot.</p>
+          <button class="btn" id="btn-net-back" data-i18n="select.back">Back</button>
+        </div>
+      </section>
+
       <section class="screen" id="screen-help" hidden>
         <div class="panel wide scroll">
           <h2 class="spooky" data-i18n="help.title">How to play</h2>
@@ -143,6 +168,7 @@
             <li data-i18n-html="help.bombs"></li>
             <li data-i18n-html="help.daily"></li>
             <li data-i18n-html="help.coop"></li>
+            <li data-i18n-html="net.help"></li>
             <li data-i18n-html="help.doors"></li>
             <li data-i18n-html="help.pets"></li>
             <li data-i18n-html="help.unlocks"></li>
@@ -195,6 +221,7 @@
       <section class="screen" id="screen-pause" hidden>
         <div class="panel">
           <h2 class="spooky" data-i18n="pause.title">Paused</h2>
+          <p class="sub" id="pause-note" hidden></p>
           <button class="btn primary" id="btn-resume" data-i18n="pause.resume">Resume</button>
           <button class="btn" id="btn-pause-settings"><span aria-hidden="true">⚙️</span> <span data-i18n="title.settings">Settings</span></button>
           <button class="btn" id="btn-quit" data-i18n="pause.quit">Quit to menu</button>

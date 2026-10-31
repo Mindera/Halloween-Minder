@@ -3,21 +3,34 @@ export class Pad {
   /** Buffered direction: applied at the next junction where it fits. */
   dir = -1;
   fireHeld = false;
+  /** Running counts of steers and presses, sent to the host in a networked game (a single one can't get lost that way). */
+  turns = 0;
+  shots = 0;
+  drops = 0;
   private firePressed = false;
   private bombPressed = false;
+
+  /** A direction from the player (each one counts, even the same again: the doll sees it). */
+  steer(d: number) {
+    this.dir = d;
+    this.turns++;
+  }
 
   pressFire() {
     this.firePressed = true;
     this.fireHeld = true;
+    this.shots++;
   }
 
   pressBomb() {
     this.bombPressed = true;
+    this.drops++;
   }
 
   /** A single shot without holding (tap on the maze). */
   tapFire() {
     this.firePressed = true;
+    this.shots++;
   }
 
   /** True once per press, and continuously while held (the game's cooldown paces auto-fire). */
@@ -114,7 +127,7 @@ export class Input {
     maps.forEach((map, i) => {
       const pad = this.pads[i];
       if (e.code in map.dirs) {
-        if (down) pad.dir = map.dirs[e.code];
+        if (down) pad.steer(map.dirs[e.code]);
         e.preventDefault();
       } else if (map.fire.has(e.code)) {
         if (down && !e.repeat) pad.pressFire();
@@ -135,7 +148,7 @@ export class Input {
       const dy = e.clientY - (r.top + r.height / 2);
       if (Math.hypot(dx, dy) < r.width * 0.12) return;
       const d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
-      if (this.enabled) this.pads[i].dir = d;
+      if (this.enabled) this.pads[i].steer(d);
       el.dataset.dir = String(d);
     };
     el.addEventListener('pointerdown', (e) => {
@@ -204,7 +217,7 @@ export class Input {
       const dist = Math.hypot(dx, dy);
       if (dist < 22) return;
       moved += dist;
-      this.pads[0].dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
+      this.pads[0].steer(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0);
       sx = e.clientX;
       sy = e.clientY;
     });

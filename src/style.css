@@ -1366,6 +1366,81 @@ html[dir='rtl'] #banner {
   box-shadow: none;
 }
 
+/* ------------------------------------------------------------- 2 Players across two phones (experimental) */
+
+.exp-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: var(--yellow);
+  color: #1a0b2e;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+}
+.exp-tag[hidden] {
+  display: none;
+}
+.net-panel .hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0.85;
+}
+.net-panel .qr {
+  width: min(260px, 72vw);
+  padding: 8px;
+  border-radius: 14px;
+  background: #fff;
+  line-height: 0;
+}
+.net-panel .qr svg {
+  width: 100%;
+  height: auto;
+}
+.net-panel .scanner {
+  width: min(260px, 72vw);
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 3px solid #84ffff;
+  background: #000;
+}
+.net-panel .scanner video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.net-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.net-paste[hidden] {
+  display: none;
+}
+.net-paste textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font: 13px/1.3 ui-monospace, Menlo, monospace;
+  resize: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.btn:disabled {
+  opacity: 0.6;
+  filter: grayscale(0.6);
+  box-shadow: none;
+  transform: none;
+}
+
 /* ------------------------------------------------------------- wardrobe, stickers, settings */
 
 .wardrobe {
