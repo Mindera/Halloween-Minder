@@ -255,7 +255,9 @@ export const ptBR: Dict = {
     survived: 'VOCÊ SOBREVIVEU!',
   },
   climb: {
+    tease: 'Continue me mexendo e talvez você descubra alguma coisa…',
     best: 'RECORDE',
+    hurry: 'Continue subindo!',
     newBest: 'Novo recorde!',
     bestWas: 'Recorde: {n}',
     hintTouch: 'Segure à esquerda ou à direita para se mover · toque para atirar',

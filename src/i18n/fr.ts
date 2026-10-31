@@ -254,7 +254,9 @@ export const fr: Dict = {
     survived: 'TU AS SURVÉCU !',
   },
   climb: {
+    tease: 'Continue à me bouger et tu découvriras peut-être quelque chose…',
     best: 'RECORD',
+    hurry: 'Continue de grimper !',
     newBest: 'Nouveau record !',
     bestWas: 'Record : {n}',
     hintTouch: 'Reste appuyé à gauche ou à droite pour te déplacer · touche pour tirer',

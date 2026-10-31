@@ -254,7 +254,9 @@ export const ro: Dict = {
     survived: 'AI SUPRAVIEȚUIT!',
   },
   climb: {
+    tease: 'Mai mișcă-mă și s-ar putea să descoperi ceva…',
     best: 'RECORD',
+    hurry: 'Urcă în continuare!',
     newBest: 'Record nou!',
     bestWas: 'Record: {n}',
     hintTouch: 'Ține apăsat în stânga sau în dreapta ca să te miști · atinge ca să tragi',

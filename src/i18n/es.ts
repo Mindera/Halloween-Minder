@@ -254,7 +254,9 @@ export const es: Dict = {
     survived: '¡SOBREVIVISTE!',
   },
   climb: {
+    tease: 'Sigue moviéndome y quizá descubras algo…',
     best: 'RÉCORD',
+    hurry: '¡Sigue subiendo!',
     newBest: '¡Nuevo récord!',
     bestWas: 'Récord: {n}',
     hintTouch: 'Mantén pulsado a la izquierda o a la derecha para moverte · toca para disparar',

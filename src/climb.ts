@@ -8,6 +8,8 @@
  *   A pumpkin on a plank is a trampoline, and a broom flies you straight up for a moment.
  * - Grab IT bits and candy. Bats and ghosts get in the way: land on their heads or shoot them with an eyeball
  *   (tap / Space). Bump into one and the Minder cries and falls.
+ * - The screen keeps scrolling up on its own, slowly at first and faster as you go, so standing still loses:
+ *   a plank that scrolls off the bottom is gone. The bottom edge glows with caution stripes when you're close.
  * - Fall off the bottom and the page scrolls back down to the title, where the Minder drops back into its spot
  *   and shows its score. The best score and height are kept on the device.
  * - It plays a lighter, bouncier arrangement of the game's Halloween tune (`audio.startMusic('light')`).
@@ -38,6 +40,10 @@ const SHOT_COOLDOWN = 0.28; // s
 const POINT = 24; // px climbed per point
 const MAX_GAP = 0.86 * ((JUMP * JUMP) / (2 * GRAVITY));
 const CAMERA_LINE = 0.42; // the camera follows once the Minder rises above this fraction of the screen
+// The screen also scrolls up by itself, after a short grace period: px/s, speeding up with time and height.
+const CREEP_GRACE = 1.2; // s
+const CREEP_MIN = 35;
+const CREEP_MAX = 100;
 const KEY = 'hm.climb';
 
 /** Mindera's colours, from mindera.com: brand yellow, black and their greys. */
@@ -232,6 +238,9 @@ export class Climb {
   private bonus = 0;
   private best: Best = { score: 0, height: 0 };
   private passedBest = false;
+  /** Seconds since the first bounce, for the screen's own scrolling. */
+  private playTime = 0;
+  private creeping = false;
   private shown = { score: '', best: '' };
 
   private left = false;
@@ -338,6 +347,8 @@ export class Climb {
     this.cooldown = 0;
     this.best = loadBest();
     this.passedBest = this.best.score === 0;
+    this.playTime = 0;
+    this.creeping = false;
     this.planks = [];
     this.pickups = [];
     this.foes = [];
@@ -709,7 +720,8 @@ export class Climb {
     const half = this.size * this.aspect * 0.5;
     if (this.vy > 0 && this.broom <= 0) {
       for (const p of this.planks) {
-        if (p.gone >= 0 || prevY > p.y + 1 || this.y < p.y) continue;
+        // A plank that has scrolled off the bottom is gone.
+        if (p.gone >= 0 || prevY > p.y + 1 || this.y < p.y || p.y + this.cam > this.H) continue;
         if (Math.abs(this.x - p.x) > p.w / 2 + half * 0.45) continue;
         this.bounce(p);
         break;
@@ -722,7 +734,18 @@ export class Climb {
       if ((p.x < p.w / 2 && p.vx < 0) || (p.x > this.colW - p.w / 2 && p.vx > 0)) p.vx = -p.vx;
     }
 
-    // The camera only goes up.
+    // The screen creeps up on its own, so standing still isn't an option.
+    this.playTime += dt;
+    const creep =
+      clamp((this.playTime - CREEP_GRACE) / 2, 0, 1) *
+      clamp(CREEP_MIN + 0.45 * this.playTime + 0.003 * (this.climbed / S), CREEP_MIN, CREEP_MAX) *
+      S;
+    if (creep > 0 && !this.creeping) {
+      this.creeping = true;
+      this.pop(this.x, this.y - this.size - 16 * S, t('climb.hurry'), M.yellow, 20);
+    }
+    this.cam += creep * dt;
+    // The camera only goes up, and follows the Minder past the line.
     const line = this.H * CAMERA_LINE;
     if (this.y - this.size + this.cam < line) this.cam = line - (this.y - this.size);
     this.climbed = Math.max(this.climbed, this.startY - this.y);
@@ -890,19 +913,33 @@ export class Climb {
 
   /** "SCORE 41 · New best!" above the Minder's head, like a speech bubble. */
   private showBubble(score: number, isBest: boolean, best: number) {
-    this.dismissBubble();
-    const r = this.home.getBoundingClientRect();
-    if (!r.width) return;
-    const b = document.createElement('div');
-    b.className = `climb-bubble${isBest ? ' new' : ''}`;
+    const b = this.speechBubble(this.home, isBest ? 'new' : '', 5000);
+    if (!b) return;
     b.innerHTML = `<small>${t('hud.score')}</small><b>${score.toLocaleString('en-US')}</b><em></em>`;
     b.querySelector('em')!.textContent = isBest ? t('climb.newBest') : t('climb.bestWas', { n: best.toLocaleString('en-US') });
+  }
+
+  /** The title Minder says something (e.g. the hint the first time it's moved). */
+  say(minder: HTMLElement, text: string) {
+    if (this.active) return;
+    const b = this.speechBubble(minder, 'say', 6000);
+    if (b) b.textContent = text;
+  }
+
+  /** An empty speech bubble above `minder`'s head; a tap anywhere or `ms` later closes it. */
+  private speechBubble(minder: HTMLElement, cls: string, ms: number): HTMLElement | null {
+    this.dismissBubble();
+    const r = minder.getBoundingClientRect();
+    if (!r.width) return null;
+    const b = document.createElement('div');
+    b.className = `climb-bubble ${cls}`.trim();
     b.style.left = `${r.left + r.width / 2}px`;
     b.style.top = `${r.top - 6}px`;
     document.body.appendChild(b);
     this.bubble = b;
-    this.bubbleTimer = window.setTimeout(this.onBubbleTap, 5000);
+    this.bubbleTimer = window.setTimeout(this.onBubbleTap, ms);
     window.setTimeout(() => this.bubble === b && window.addEventListener('pointerdown', this.onBubbleTap), 300);
+    return b;
   }
 
   private dismissBubble(animate = false) {
@@ -959,6 +996,7 @@ export class Climb {
       this.drawSparks(g);
       g.restore();
     }
+    if (this.phase === 'play') this.drawDanger(g);
     // While the page scrolls home the Minder is out of sight; it drops back in from the top afterwards.
     if (this.phase === 'return') return;
     if (this.phase === 'land' || this.phase === 'settle') this.drawMinder(g, this.colX + this.x);
@@ -974,6 +1012,38 @@ export class Climb {
       if (this.x > this.colW - half) this.drawMinder(g, this.colX + this.x - this.colW);
       g.restore();
     }
+  }
+
+  /** The bottom edge glows and shows caution stripes as the Minder gets close to it. */
+  private drawDanger(g: G) {
+    const k = clamp((this.y + this.cam - this.H * 0.68) / (this.H * 0.3), 0, 1);
+    if (k <= 0) return;
+    const pulse = 0.75 + 0.25 * Math.sin(this.time * 10);
+    const grad = g.createLinearGradient(0, this.H - 110, 0, this.H);
+    grad.addColorStop(0, 'rgba(255,199,0,0)');
+    grad.addColorStop(1, `rgba(255,199,0,${0.4 * k * pulse})`);
+    g.fillStyle = grad;
+    g.fillRect(0, this.H - 110, this.W, 110);
+    // Mindera caution tape: yellow and black stripes.
+    const h = 10;
+    g.save();
+    g.globalAlpha = k;
+    g.fillStyle = M.yellow;
+    g.fillRect(0, this.H - h, this.W, h);
+    g.beginPath();
+    g.rect(0, this.H - h, this.W, h);
+    g.clip();
+    g.fillStyle = M.black;
+    const shift = (this.time * 40) % 28;
+    for (let x = -28 + shift; x < this.W + 28; x += 28) {
+      g.beginPath();
+      g.moveTo(x, this.H);
+      g.lineTo(x + 14, this.H);
+      g.lineTo(x + 24, this.H - h);
+      g.lineTo(x + 10, this.H - h);
+      g.fill();
+    }
+    g.restore();
   }
 
   /** Mindera black closes in over the title, then grey clouds, a big yellow moon and more stars as it climbs. */

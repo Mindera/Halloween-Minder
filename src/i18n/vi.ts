@@ -254,7 +254,9 @@ export const vi: Dict = {
     survived: 'BẠN ĐÃ SỐNG SÓT!',
   },
   climb: {
+    tease: 'Cứ tiếp tục di chuyển mình đi, biết đâu bạn sẽ khám phá ra điều gì đó…',
     best: 'KỶ LỤC',
+    hurry: 'Leo tiếp đi!',
     newBest: 'Kỷ lục mới!',
     bestWas: 'Kỷ lục: {n}',
     hintTouch: 'Giữ bên trái hoặc bên phải để di chuyển · chạm để bắn',

@@ -50,6 +50,8 @@ const bigScreen = () => Math.min(window.innerWidth, window.innerHeight) >= 600;
 const SCREENS = ['screen-title', 'screen-select', 'screen-help', 'screen-scores', 'screen-lang', 'screen-settings', 'screen-stickers', 'screen-pause', 'screen-over'];
 const minderName = (id: string) => t(`minders.${id}.name`);
 const P2_KEY = 'hm.minder2';
+/** Set once the title Minder has dropped its hint about the secret. */
+const TEASE_KEY = 'hm.tease';
 
 type State = 'menu' | 'playing' | 'paused' | 'over';
 type Mode = 'arcade' | 'daily' | 'coop';
@@ -100,7 +102,7 @@ class App {
       buzz(speed > 1500 ? 'medium' : 'light');
     },
     onThrow: () => this.throws++,
-    onHome: () => this.openSecret(),
+    onHome: () => (this.throws >= 3 ? this.openSecret() : this.tease()),
   });
 
   constructor() {
@@ -240,6 +242,19 @@ class App {
         /* ignore */
       }
     this.loadMinderImages();
+  }
+
+  /** The first time it's moved, the title Minder hints at the secret (once per device, until it's found). */
+  private tease() {
+    if (this.state !== 'menu' || $('screen-title').hidden || stats.secrets > 0) return;
+    try {
+      if (localStorage.getItem(TEASE_KEY)) return;
+      localStorage.setItem(TEASE_KEY, '1');
+    } catch {
+      return;
+    }
+    this.climb.say($('title-minder'), t('climb.tease'));
+    audio.play('appear');
   }
 
   /** Third throw in a row and the title Minder is back home: off it climbs, as the selected Minder. */

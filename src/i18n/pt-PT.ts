@@ -255,7 +255,9 @@ export const ptPT: Dict = {
     survived: 'SOBREVIVESTE!',
   },
   climb: {
+    tease: 'Continua a mexer-me e talvez descubras alguma coisa…',
     best: 'RECORDE',
+    hurry: 'Continua a subir!',
     newBest: 'Novo recorde!',
     bestWas: 'Recorde: {n}',
     hintTouch: 'Carrega à esquerda ou à direita para te mexeres · toca para disparar',

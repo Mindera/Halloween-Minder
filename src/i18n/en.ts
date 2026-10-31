@@ -262,7 +262,9 @@ export const en = {
   },
   /** The secret on the title screen (see climb.ts). */
   climb: {
+    tease: 'Keep moving me and you might discover something…',
     best: 'BEST',
+    hurry: 'Keep climbing!',
     newBest: 'New best!',
     bestWas: 'Best: {n}',
     hintTouch: 'Hold left or right to steer · tap to shoot',

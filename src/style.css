@@ -787,6 +787,18 @@ h3 {
 .climb-bubble.out {
   opacity: 0;
 }
+/* The title Minder talking: "Keep moving me and you might discover something…" */
+.climb-bubble.say {
+  display: block;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 32px));
+  padding: 10px 16px;
+  color: #fff9e5;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+}
 @keyframes bubble-pop {
   from {
     opacity: 0;
