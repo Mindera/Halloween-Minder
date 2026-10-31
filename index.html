@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a0b2e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Halloween Minder" />
+    <meta name="description" content="Happy Halloween. Love Mindera — shoot eyeballs at zombies, witches and pumpkins in a spooky maze!" />
+    <meta property="og:title" content="Halloween Minder" />
+    <meta property="og:description" content="Happy Halloween. Love Mindera — can you beat my score?" />
+    <meta property="og:image" content="./icons/og-image.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <title>Halloween Minder</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="hud" hidden>
+        <button id="btn-pause" class="hud-btn" aria-label="Pause">❚❚</button>
+        <div class="stat"><span class="lbl">LEVEL</span><b id="hud-level">1</b></div>
+        <div class="stat grow"><span class="lbl">SCORE</span><b id="hud-score">0</b></div>
+        <div class="stat" id="hud-time-wrap"><span class="lbl">TIME</span><b id="hud-time">2:00</b></div>
+        <div class="stat"><span class="lbl">MONSTERS</span><b id="hud-enemies">0</b></div>
+        <div class="stat"><span class="lbl">BITS</span><b id="hud-bits">0</b></div>
+        <button id="btn-mute" class="hud-btn" aria-label="Toggle sound">🔊</button>
+      </header>
+
+      <main id="stage">
+        <canvas id="game"></canvas>
+        <div id="effects"></div>
+        <div id="toast" aria-live="polite"></div>
+        <div id="banner"></div>
+      </main>
+
+      <footer id="controls" hidden>
+        <div id="dpad" aria-label="Direction pad">
+          <span class="arrow up"></span>
+          <span class="arrow right"></span>
+          <span class="arrow down"></span>
+          <span class="arrow left"></span>
+          <span class="nub"></span>
+        </div>
+        <button id="fire" aria-label="Shoot an eyeball"><span class="eye"></span><span class="label">FIRE</span></button>
+      </footer>
+
+      <section class="screen" id="screen-title">
+        <div class="panel title-panel">
+          <div class="floaters" aria-hidden="true"></div>
+          <h1 class="spooky">Halloween<br />Minder</h1>
+          <p class="sub">Shoot eyeballs. Bonk monsters. Grab the bits!</p>
+          <img class="hero" id="title-minder" alt="" />
+          <button class="btn primary" id="btn-play">PLAY</button>
+          <div class="row">
+            <button class="btn" id="btn-help">How to play</button>
+            <button class="btn" id="btn-scores">High scores</button>
+          </div>
+          <p class="best">Best: <b id="title-best">0</b></p>
+          <img class="logo" src="./mindera-logo.png" alt="Mindera" />
+        </div>
+      </section>
+
+      <section class="screen" id="screen-select" hidden>
+        <div class="panel wide">
+          <h2 class="spooky">Pick your Minder</h2>
+          <div id="minder-grid" class="minder-grid"></div>
+          <div class="row">
+            <button class="btn" data-back>Back</button>
+            <button class="btn primary" id="btn-go">LET'S GO!</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-help" hidden>
+        <div class="panel wide scroll">
+          <h2 class="spooky">How to play</h2>
+          <ul class="howto">
+            <li><b>Move</b> with the D-pad, a swipe on the maze, or the arrow keys / WASD.</li>
+            <li><b>Shoot eyeballs</b> with FIRE, a tap on the maze, or Space.</li>
+            <li>Grab every <b>IT bit</b> (0s, 1s, floppies, chips, bugs…) <b>and</b> bonk every monster to clear the level.</li>
+            <li>You have <b>2 minutes</b> per level. If a monster touches you, it's game over!</li>
+            <li>Levels get faster and sneakier… all the way to <b>level 100</b>. Level 12 is a surprise party! 🎉</li>
+          </ul>
+          <h3>Snacks &amp; surprises (10 seconds each)</h3>
+          <div id="item-legend" class="legend"></div>
+          <h3>Monsters</h3>
+          <div id="monster-legend" class="legend"></div>
+          <button class="btn primary" data-back>Got it!</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-scores" hidden>
+        <div class="panel">
+          <h2 class="spooky">High scores</h2>
+          <ol id="score-list" class="scores"></ol>
+          <button class="btn primary" data-back>Back</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-pause" hidden>
+        <div class="panel">
+          <h2 class="spooky">Paused</h2>
+          <button class="btn primary" id="btn-resume">Resume</button>
+          <button class="btn" id="btn-quit">Quit to menu</button>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-over" hidden>
+        <div class="panel over-panel scroll">
+          <h2 class="greeting">Happy Halloween.<br /><span>Love Mindera</span></h2>
+          <p id="over-headline" class="headline">GAME OVER</p>
+          <p id="over-reason" class="reason"></p>
+          <img id="over-minder" class="hero small" alt="" />
+          <div class="score-card">
+            <div><span class="lbl">SCORE</span><b id="over-score">0</b></div>
+            <div><span class="lbl">LEVEL</span><b id="over-level">1</b></div>
+            <div><span class="lbl">HIGH SCORE</span><b id="over-best">0</b></div>
+          </div>
+          <p id="over-new" class="new-best" hidden>🎉 NEW HIGH SCORE! 🎉</p>
+          <button class="btn share" id="btn-share">📣 Share my score</button>
+          <div id="share-fallback" class="share-fallback" hidden>
+            <a id="share-whatsapp" target="_blank" rel="noopener">WhatsApp</a>
+            <a id="share-x" target="_blank" rel="noopener">X / Twitter</a>
+            <a id="share-facebook" target="_blank" rel="noopener">Facebook</a>
+            <a id="share-linkedin" target="_blank" rel="noopener">LinkedIn</a>
+            <button id="share-copy" type="button">Copy text</button>
+            <a id="share-download" download="halloween-minder-score.png">Save image</a>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btn-again">Play again</button>
+            <button class="btn" id="btn-change">Change Minder</button>
+          </div>
+          <img class="logo" src="./mindera-logo.png" alt="Mindera" />
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

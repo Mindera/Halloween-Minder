@@ -1,0 +1,50 @@
+name: Mobile builds (APK / AAB / IPA)
+
+# Disabled for now: this workflow never runs on push. Trigger it by hand from
+# Actions → "Mobile builds" → Run workflow once the store accounts and secrets are ready.
+on:
+  workflow_dispatch:
+    inputs:
+      android:
+        description: Build Android (APK + AAB)
+        type: boolean
+        default: true
+      ios:
+    if: ${{ inputs.ios }}
+    runs-on: macos-15
+    env:
+      TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_BASE64 }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync ios
+
+      # Automatic (cloud) signing with an App Store Connect API key: no certificates or profiles to juggle.
+      - name: Archive and export IPA
+        run: |
+          if [ -z "$TEAM_ID" ] || [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8_BASE64" ]; then
+            echo "::error::Set IOS_TEAM_ID, APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID and APP_STORE_CONNECT_KEY_P8_BASE64 secrets to build an IPA."
+            exit 1
+          fi
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          sed "s/__TEAM_ID__/$TEAM_ID/" ios/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic "${AUTH[@]}" archive
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/ipa" "${AUTH[@]}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: halloween-minder-ios
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: error

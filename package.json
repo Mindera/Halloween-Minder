@@ -1,0 +1,30 @@
+{
+  "name": "halloween-minder",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Happy Halloween. Love Mindera — a spooky maze shooter starring the Minders.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit",
+    "cap:sync": "npm run build && cap sync",
+    "cap:ios": "npm run cap:sync && cap open ios",
+    "cap:android": "npm run cap:sync && cap open android",
+    "assets": "capacitor-assets generate --assetPath resources --iconBackgroundColor '#1a0b2e' --iconBackgroundColorDark '#1a0b2e' --splashBackgroundColor '#1a0b2e' --splashBackgroundColorDark '#1a0b2e' --ios --android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/share": "^8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4"
+  }
+}

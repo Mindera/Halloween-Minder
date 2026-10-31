@@ -1,1 +1,109 @@
-# Halloween-Minder-
+# Halloween Minder 🎃👁️
+
+**Happy Halloween. Love Mindera.**
+
+A spooky, silly maze shooter for kids. It mixes **Pac-Man** (corridors full of things to collect) with **Tank 1990** (shoot every enemy to clear the level). You play as a Minder, collect the IT bits, and shoot **eyeballs** at zombies, witches, pumpkins, skeletons and their friends.
+
+- Web: <https://mindera.github.io/Halloween-Minder/> (deployed automatically from `main`)
+- iOS / Android: Capacitor wrappers in `ios/` and `android/`, ready for store builds
+
+## How to play
+
+| | Touch | Keyboard |
+|---|---|---|
+| Move | D-pad, or swipe on the maze | Arrows / WASD |
+| Shoot an eyeball | FIRE (hold for auto-fire), or tap the maze | Space / Enter / J / K |
+| Pause | ❚❚ button | P / Esc |
+| Mute | 🔊 button | M |
+
+- Clear a level by grabbing **every IT bit** (0s, 1s, floppies, chips, bugs, USB sticks…) **and** bonking **every monster**.
+- You have **2 minutes** per level. If a monster touches you, or time runs out, it's game over.
+- Monsters get faster, smarter and more numerous each level. There are **100 levels**, and level 100 is close to impossible.
+- **Level 12 is Mindera's anniversary party**: a giant "12" maze, rainbow walls, cupcakes, a birthday cake bonus, *Happy Birthday* music and double points.
+- When you die, the game-over screen shows your score and high score (top 10, stored on the device), with a **Share** button. Share uses the native share sheet on iOS/Android, Web Share on mobile browsers (with a generated score-card image), or WhatsApp / X / Facebook / LinkedIn / copy links as a fallback.
+
+### Bonus items (appear for 10–15 s, last 10 s)
+
+| Item | Effect |
+|---|---|
+| 🦗 Cricket | Chirping drives nearby monsters bonkers, and they pop |
+| 🌶️ Hot Spice | The Minder turns red hot, the screen glows red, super speed |
+| 🐷 Pig | The Minder gets fat: slower, but monsters bounce off the belly |
+| 🥖 Eclair | Every monster gets fat and slow (and easier to hit) |
+| 🍺 Root Beer | Wobbly, blurry screen. Hic! |
+| 💻 Computer | Blue Screen of Death: monsters freeze, so touch them to delete them |
+| ☕ Coffee | Rapid-fire eyeballs |
+| 🍬 Candy | +1000 points |
+| 🎂 Cake | Level 12 only, +1200 points |
+
+### Monsters
+
+Zombie, Pumpkin (splits in two from level 5), Skeleton, Bat, Ghost and Witch (both fly through walls), Mummy (3 hits) and Vampire (turns into bats). New monsters unlock as the levels go up.
+
+### Minders
+
+13 playable Minders, taken from the Mindera Minder art: Classic, Pumpkin, Franken, Boo, Slime, Fuzzy, Shadow, Mad Scientist, Doctor, Cowboy, Gamer, Rocket and Bow. Their images are in `public/minders/`. To add one, drop a trimmed PNG of up to 256 px there and add an entry to `MINDERS` in `src/config.ts`.
+
+## Development
+
+Requires Node 22+.
+
+```bash
+npm install
+npm run dev        # http://localhost:5173 (also on your LAN, so you can open it on a phone)
+npm run build      # type-check + production build into dist/
+npm run preview    # serve the production build
+```
+
+The game is plain TypeScript and Canvas 2D with no game engine, bundled by Vite. All sound effects and music are synthesised with WebAudio, so there are no audio files, and the fonts are bundled, so it works offline inside the native apps.
+
+```
+src/
+  main.ts      screens, layout, HUD, game loop
+  game.ts      game rules: movement, monster AI, shooting, items, levels, timer
+  maze.ts      symmetric braided maze generator + the level-12 "12" maze
+  render.ts    canvas renderer (neon walls, effects, particles)
+  sprites.ts   procedural monster / item / IT-bit art
+  input.ts     keyboard, D-pad, fire button, swipe and tap
+  audio.ts     WebAudio sound effects and music
+  share.ts     score-card image and share flow
+  config.ts    minders, monsters, items, difficulty curve
+```
+
+## Deploying to GitHub Pages
+
+`.github/workflows/deploy-pages.yml` builds and deploys on every push to `main`.
+
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+The build uses relative asset paths (`base: './'`), so it works under `/Halloween-Minder/` and inside the native apps without changes.
+
+## iOS and Android (Capacitor)
+
+The native projects live in `ios/` (Swift Package Manager, no CocoaPods) and `android/`.
+
+```bash
+npm run cap:ios       # build web, sync, open Xcode
+npm run cap:android   # build web, sync, open Android Studio
+npm run assets        # regenerate app icons/splash from resources/
+```
+
+- App id: `com.mindera.halloweenminder`, name: **Halloween Minder**
+- Icons and splash sources are in `resources/`.
+
+### CI builds (APK / AAB / IPA): currently disabled
+
+`.github/workflows/mobile-build.yml` **does not run on push**. Start it manually from **Actions → Mobile builds → Run workflow** once the store accounts are ready. It uploads the APK/AAB/IPA as workflow artifacts.
+
+| Secret | Used for |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | Release keystore (`base64 -i release.keystore`). Without it, only a debug APK is built. |
+| `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Keystore credentials |
+| `IOS_TEAM_ID` | Apple Developer team id |
+| `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_P8_BASE64` | App Store Connect API key (Admin role) used for automatic cloud signing |
+
+## Credits
+
+- Minder artwork: Mindera.
+- Fonts: [Creepster](https://fonts.google.com/specimen/Creepster) and [Fredoka](https://fonts.google.com/specimen/Fredoka) (SIL Open Font License).
+- *Happy Birthday* melody: public domain.
