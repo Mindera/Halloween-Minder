@@ -642,6 +642,8 @@ h3 {
 }
 .greeting span {
   color: var(--yellow);
+  font-size: 0.8em;
+  white-space: nowrap;
 }
 .headline {
   margin: 0;

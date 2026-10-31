@@ -20,7 +20,7 @@ export function shareText(i: ShareInfo): string {
   const what = i.won
     ? `I beat all 100 levels of Halloween Minder with ${i.score.toLocaleString('en-US')} points`
     : `I scored ${i.score.toLocaleString('en-US')} points and reached level ${i.level} in Halloween Minder`;
-  return `🎃 ${what} as ${i.minderName}! 👁️ Can you beat me? Happy Halloween. Love Mindera`;
+  return `🎃 ${what} as ${i.minderName}! 👁️ Can you beat me? Happy Halloween. With love, Mindera`;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -67,8 +67,8 @@ export async function buildCard(i: ShareInfo): Promise<Blob | null> {
   g.font = '120px Creepster, Fredoka, cursive';
   g.fillText('Happy Halloween.', S / 2, 150);
   g.fillStyle = '#ffd400';
-  g.font = '96px Creepster, Fredoka, cursive';
-  g.fillText('Love Mindera', S / 2, 265);
+  g.font = '84px Creepster, Fredoka, cursive';
+  g.fillText('With love, Mindera', S / 2, 262);
   g.shadowBlur = 0;
 
   const img = i.minderImg;

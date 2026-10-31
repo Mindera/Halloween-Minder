@@ -1,6 +1,6 @@
 # Halloween Minder 🎃👁️
 
-**Happy Halloween. Love Mindera.**
+**Happy Halloween. With love, Mindera.**
 
 A spooky, silly maze shooter for kids. It mixes **Pac-Man** (corridors full of things to collect) with **Tank 1990** (shoot every enemy to clear the level). You play as a Minder, collect the IT bits, and shoot **eyeballs** at zombies, witches, pumpkins, skeletons and their friends.
 

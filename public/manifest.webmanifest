@@ -1,7 +1,7 @@
 {
   "name": "Halloween Minder",
   "short_name": "Halloween Minder",
-  "description": "Happy Halloween. Love Mindera — shoot eyeballs at zombies, witches and pumpkins in a spooky maze!",
+  "description": "Happy Halloween. With love, Mindera — shoot eyeballs at zombies, witches and pumpkins in a spooky maze!",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

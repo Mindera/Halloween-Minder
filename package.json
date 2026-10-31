@@ -2,7 +2,7 @@
   "name": "halloween-minder",
   "private": true,
   "version": "1.0.0",
-  "description": "Happy Halloween. Love Mindera — a spooky maze shooter starring the Minders.",
+  "description": "Happy Halloween. With love, Mindera — a spooky maze shooter starring the Minders.",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
