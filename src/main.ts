@@ -52,6 +52,16 @@ const isTouch = () => window.matchMedia('(pointer: coarse)').matches || navigato
 /** Co-op needs room for two people: tablets and computers. */
 const bigScreen = () => Math.min(window.innerWidth, window.innerHeight) >= 600;
 /** Development: `?net` offers two-device play anywhere, `?net=loop` pairs two tabs of this browser. */
+/** When this build was made (see vite.config.ts). */
+declare const __RELEASE__: string;
+
+/** The last release as YYYY-MM-DD HH:MM, in the device's time zone. */
+function releaseStamp(): string {
+  const d = new Date(__RELEASE__);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 const devNet = import.meta.env.DEV ? new URLSearchParams(location.search).get('net') : null;
 /** Phones play 2 Players across two phones (experimental); tablets and computers share one screen. */
 const netCoop = () => devNet !== null || (isTouch() && !bigScreen());
@@ -387,6 +397,8 @@ class App {
       });
       list.appendChild(b);
     });
+    // Isolated left-to-right, so the date and time keep their order in Arabic.
+    $('release').textContent = t('settings.release', { date: `\u2066${releaseStamp()}\u2069` });
     this.show('screen-settings');
   }
 

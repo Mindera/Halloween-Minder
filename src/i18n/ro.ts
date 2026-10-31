@@ -117,6 +117,7 @@ export const ro: Dict = {
     noScarySub: 'Sunete blânde în loc de cele fioroase.',
     on: 'PORNIT',
     off: 'OPRIT',
+    release: 'Ultima versiune: {date}',
   },
   stickers: {
     title: 'Albumul cu abțibilduri',

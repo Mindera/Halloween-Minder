@@ -117,6 +117,7 @@ export const vi: Dict = {
     noScarySub: 'Âm thanh nhẹ nhàng thay cho tiếng rùng rợn.',
     on: 'BẬT',
     off: 'TẮT',
+    release: 'Bản phát hành gần nhất: {date}',
   },
   stickers: {
     title: 'Sổ hình dán',

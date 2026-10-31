@@ -118,6 +118,7 @@ export const ptBR: Dict = {
     noScarySub: 'Sons suaves no lugar dos sons sinistros.',
     on: 'ATIVADO',
     off: 'DESATIVADO',
+    release: 'Última versão: {date}',
   },
   stickers: {
     title: 'Álbum de figurinhas',

@@ -122,6 +122,7 @@ export const en = {
     noScarySub: 'Gentle sounds instead of spooky ones.',
     on: 'ON',
     off: 'OFF',
+    release: 'Last release: {date}',
   },
   stickers: {
     title: 'Sticker book',

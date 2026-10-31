@@ -117,6 +117,7 @@ export const fr: Dict = {
     noScarySub: 'Des sons tout doux au lieu des sons effrayants.',
     on: 'OUI',
     off: 'NON',
+    release: 'Dernière version : {date}',
   },
   stickers: {
     title: "Album d'autocollants",

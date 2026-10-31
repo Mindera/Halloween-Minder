@@ -117,6 +117,7 @@ export const hi: Dict = {
     noScarySub: 'डरावनी आवाज़ों की जगह हल्की-प्यारी आवाज़ें।',
     on: 'ऑन',
     off: 'ऑफ़',
+    release: 'नवीनतम रिलीज़: {date}',
   },
   stickers: {
     title: 'स्टिकर बुक',

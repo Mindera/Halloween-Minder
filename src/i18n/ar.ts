@@ -117,6 +117,7 @@ export const ar: Dict = {
     noScarySub: 'أصوات لطيفة بدل الأصوات المخيفة.',
     on: 'تشغيل',
     off: 'إيقاف',
+    release: 'آخر إصدار: {date}',
   },
   stickers: {
     title: 'دفتر الملصقات',

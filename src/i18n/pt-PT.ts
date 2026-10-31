@@ -118,6 +118,7 @@ export const ptPT: Dict = {
     noScarySub: 'Sons suaves em vez de sons arrepiantes.',
     on: 'LIGADO',
     off: 'DESLIGADO',
+    release: 'Última versão: {date}',
   },
   stickers: {
     title: 'Caderneta de cromos',

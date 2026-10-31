@@ -117,6 +117,7 @@ export const es: Dict = {
     noScarySub: 'Sonidos suaves en vez de sonidos tenebrosos.',
     on: 'SÍ',
     off: 'NO',
+    release: 'Última versión: {date}',
   },
   stickers: {
     title: 'Álbum de stickers',
