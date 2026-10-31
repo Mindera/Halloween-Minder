@@ -16,7 +16,7 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 ## Extras
 
 - **Costumes**: reaching levels 10, 25 and 50 in Arcade unlocks a witch hat, a party hat and a vampire cape. Every Minder can wear them, picked from the Wardrobe on the Minder picker.
-- **Sticker book** (🏅 on the title screen): 19 Halloween stickers for feats like *Smashed 100 crates*, *Beat Palos' cousin with only bombs* or *Caught the White Rabbit 5 times*, with progress counters.
+- **Sticker book** (🏅 on the title screen): 20 Halloween stickers (one of them top secret) for feats like *Smashed 100 crates*, *Beat Palos' cousin with only bombs* or *Caught the White Rabbit 5 times*, with progress counters.
 - 🚪 **Trick-or-treat doors** (1–3 per level): a treat (points or a random snack) or a trick (a harmless jump-scare ghost, or reversed controls for 3 seconds).
 - 🦇 **Monster pets**: a bonked monster sometimes (10%) turns into a tiny friendly bat or ghost that follows its Minder and shoots hearts at monsters for 15 seconds.
 - 👻 **Daily ghost**: your best Daily Challenge run of the day is recorded, and next time a see-through ghost Minder replays it so you can race yourself.
@@ -111,6 +111,8 @@ src/
   audio.ts     WebAudio sound effects and music
   share.ts     score-card image and share flow
   config.ts    minders, monsters, items, difficulty curve
+  fling.ts     the title Minder you can grab and throw
+  climb.ts     🤫 a secret (spoilers inside)
 ```
 
 ## Deploying to GitHub Pages

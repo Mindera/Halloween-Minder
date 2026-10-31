@@ -109,6 +109,8 @@ export const es: Dict = {
     doors10: '10 puertas de dulce o truco abiertas',
     pet: 'Un amigo monstruoso',
     snacks: 'Todos los snacks probados',
+    secret: 'Secreto descubierto',
+    secretLocked: 'Alto secreto 🤫',
   },
   wardrobe: {
     title: 'Disfraces',
@@ -250,6 +252,13 @@ export const es: Dict = {
     caught: '¡ATRAPADO!',
     back: '¡La muñeca te vio moverte! ¡Vuelta al principio!',
     survived: '¡SOBREVIVISTE!',
+  },
+  climb: {
+    best: 'RÉCORD',
+    newBest: '¡Nuevo récord!',
+    bestWas: 'Récord: {n}',
+    hintTouch: 'Mantén pulsado a la izquierda o a la derecha para moverte · toca para disparar',
+    hintKeys: '← → para moverte · Espacio para disparar',
   },
   minders: {
     classic: { name: 'Minder Clásico', tagline: 'El original. Nunca parpadea.' },

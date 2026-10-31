@@ -109,6 +109,8 @@ export const ro: Dict = {
     doors10: '10 uși „dulce sau farsă” deschise',
     pet: 'Un prieten-monstru',
     snacks: 'Toate gustările încercate',
+    secret: 'Secret descoperit',
+    secretLocked: 'Strict secret 🤫',
   },
   wardrobe: {
     title: 'Garderobă',
@@ -250,6 +252,13 @@ export const ro: Dict = {
     caught: 'PRINS!',
     back: 'Păpușa te-a văzut mișcându-te! Înapoi la start!',
     survived: 'AI SUPRAVIEȚUIT!',
+  },
+  climb: {
+    best: 'RECORD',
+    newBest: 'Record nou!',
+    bestWas: 'Record: {n}',
+    hintTouch: 'Ține apăsat în stânga sau în dreapta ca să te miști · atinge ca să tragi',
+    hintKeys: '← → ca să te miști · Space ca să tragi',
   },
   minders: {
     classic: { name: 'Minder Clasic', tagline: 'Originalul. Nu clipește niciodată.' },

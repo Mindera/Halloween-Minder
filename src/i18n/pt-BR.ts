@@ -110,6 +110,8 @@ export const ptBR: Dict = {
     doors10: '10 portas de gostosuras ou travessuras',
     pet: 'Amizade monstruosa',
     snacks: 'Todos os lanchinhos provados',
+    secret: 'Segredo descoberto',
+    secretLocked: 'Ultrassecreto 🤫',
   },
   wardrobe: {
     title: 'Fantasias',
@@ -251,6 +253,13 @@ export const ptBR: Dict = {
     caught: 'PEGUEI!',
     back: 'A boneca viu você se mexer! De volta pro começo!',
     survived: 'VOCÊ SOBREVIVEU!',
+  },
+  climb: {
+    best: 'RECORDE',
+    newBest: 'Novo recorde!',
+    bestWas: 'Recorde: {n}',
+    hintTouch: 'Segure à esquerda ou à direita para se mover · toque para atirar',
+    hintKeys: '← → para se mover · Espaço para atirar',
   },
   minders: {
     classic: { name: 'Minder Clássico', tagline: 'O original. Nunca pisca.' },

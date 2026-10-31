@@ -109,6 +109,8 @@ export const fr: Dict = {
     doors10: "10 portes d'Halloween ouvertes",
     pet: 'Un ami monstrueux',
     snacks: 'Toutes les gourmandises goûtées',
+    secret: 'Secret découvert',
+    secretLocked: 'Top secret 🤫',
   },
   wardrobe: {
     title: 'Déguisements',
@@ -250,6 +252,13 @@ export const fr: Dict = {
     caught: 'PINCÉ !',
     back: "La poupée t'a vu bouger ! Retour au départ !",
     survived: 'TU AS SURVÉCU !',
+  },
+  climb: {
+    best: 'RECORD',
+    newBest: 'Nouveau record !',
+    bestWas: 'Record : {n}',
+    hintTouch: 'Reste appuyé à gauche ou à droite pour te déplacer · touche pour tirer',
+    hintKeys: '← → pour te déplacer · Espace pour tirer',
   },
   minders: {
     classic: { name: 'Minder Classique', tagline: "L'original. Ne cligne jamais de l'œil." },

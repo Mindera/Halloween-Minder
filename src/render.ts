@@ -255,7 +255,7 @@ export interface Rect {
 }
 
 /** Costumes are drawn in the minder's own coordinates (w × h picture centred on 0,0). */
-function drawHat(g: CanvasRenderingContext2D, hat: 'witchHat' | 'partyHat', w: number, h: number) {
+export function drawHat(g: CanvasRenderingContext2D, hat: 'witchHat' | 'partyHat', w: number, h: number) {
   const top = -h / 2;
   if (hat === 'witchHat') {
     g.fillStyle = '#2a1145';
@@ -293,7 +293,7 @@ function drawHat(g: CanvasRenderingContext2D, hat: 'witchHat' | 'partyHat', w: n
   }
 }
 
-function drawCape(g: CanvasRenderingContext2D, w: number, h: number, t: number) {
+export function drawCape(g: CanvasRenderingContext2D, w: number, h: number, t: number) {
   const sway = Math.sin(t * 5) * w * 0.05;
   g.fillStyle = '#14081f';
   g.beginPath();

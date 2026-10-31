@@ -109,6 +109,8 @@ export const ar: Dict = {
     doors10: 'فتحت 10 أبواب مفاجآت',
     pet: 'صادقت وحشًا',
     snacks: 'جرّبت كل الوجبات الخفيفة',
+    secret: 'اكتشفت السر',
+    secretLocked: 'سرّي للغاية 🤫',
   },
   wardrobe: {
     title: 'خزانة الملابس',
@@ -250,6 +252,13 @@ export const ar: Dict = {
     caught: 'أمسكتك!',
     back: 'رأتك الدمية تتحرك! عُد إلى البداية!',
     survived: 'لقد نجوت!',
+  },
+  climb: {
+    best: 'الأفضل',
+    newBest: 'رقم قياسي جديد!',
+    bestWas: 'الأفضل: {n}',
+    hintTouch: 'اضغط مطوّلًا يسارًا أو يمينًا للتحرّك · انقر للإطلاق',
+    hintKeys: '← → للتحرّك · Space للإطلاق',
   },
   minders: {
     classic: { name: 'Minder الكلاسيكي', tagline: 'الأصلي. لا يرمش أبدًا.' },

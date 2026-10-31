@@ -109,6 +109,8 @@ export const vi: Dict = {
     doors10: 'Mở 10 cửa kẹo hay ghẹo',
     pet: 'Kết bạn với quái vật',
     snacks: 'Nếm thử mọi món ăn vặt',
+    secret: 'Tìm ra bí mật',
+    secretLocked: 'Tuyệt mật 🤫',
   },
   wardrobe: {
     title: 'Tủ đồ',
@@ -250,6 +252,13 @@ export const vi: Dict = {
     caught: 'BỊ BẮT!',
     back: 'Búp bê thấy bạn cử động! Về lại vạch xuất phát!',
     survived: 'BẠN ĐÃ SỐNG SÓT!',
+  },
+  climb: {
+    best: 'KỶ LỤC',
+    newBest: 'Kỷ lục mới!',
+    bestWas: 'Kỷ lục: {n}',
+    hintTouch: 'Giữ bên trái hoặc bên phải để di chuyển · chạm để bắn',
+    hintKeys: '← → để di chuyển · Space để bắn',
   },
   minders: {
     classic: { name: 'Minder Cổ Điển', tagline: 'Bản gốc. Không bao giờ chớp mắt.' },

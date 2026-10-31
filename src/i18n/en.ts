@@ -113,6 +113,8 @@ export const en = {
     doors10: 'Opened 10 trick-or-treat doors',
     pet: 'Made a monster friend',
     snacks: 'Tried every snack',
+    secret: 'Found the secret',
+    secretLocked: 'Top secret 🤫',
   },
   wardrobe: {
     title: 'Wardrobe',
@@ -257,6 +259,14 @@ export const en = {
     caught: 'CAUGHT!',
     back: 'The doll saw you move! Back to the start!',
     survived: 'YOU SURVIVED!',
+  },
+  /** The secret on the title screen (see climb.ts). */
+  climb: {
+    best: 'BEST',
+    newBest: 'New best!',
+    bestWas: 'Best: {n}',
+    hintTouch: 'Hold left or right to steer · tap to shoot',
+    hintKeys: '← → to steer · Space to shoot',
   },
   minders: {
     classic: { name: 'Classic Minder', tagline: 'The original. Never blinks.' },

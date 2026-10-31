@@ -635,6 +635,171 @@ h3 {
   filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.55));
 }
 
+/* The title screen's secret climb (see climb.ts): an overlay on top, the title scrolls away underneath.
+   Dressed in Mindera's colours (mindera.com): brand yellow on black. */
+.title-panel {
+  transition: opacity 0.6s;
+}
+.title-panel.climbing {
+  opacity: 0.6;
+}
+#title-minder.climbing {
+  visibility: hidden;
+  animation: none;
+}
+.climb {
+  --m-yellow: #ffc700;
+  --m-black: #0a0a0b;
+  --m-mist: #eaeaeb;
+  --m-cream: #fff9e5;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.climb canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.climb-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: calc(10px + var(--safe-t)) calc(14px + var(--safe-r)) 0 calc(14px + var(--safe-l));
+  color: var(--m-mist);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 3px rgba(10, 10, 11, 0.9),
+    0 0 8px rgba(10, 10, 11, 0.7);
+  pointer-events: none;
+  animation: fade 0.6s ease-out;
+  transition: opacity 0.4s;
+}
+.climb-hud b {
+  margin-inline-start: 6px;
+  color: var(--m-yellow);
+  font-size: 20px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.climb-hint,
+.climb-badge {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--m-black);
+  border: 2px solid var(--m-yellow);
+  color: var(--m-cream);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+.climb-hint {
+  bottom: calc(18px + var(--safe-b));
+  animation: fade 0.6s ease-out;
+}
+/* "New sticker: Found the secret!" as the game opens. */
+.climb-badge {
+  top: calc(46px + var(--safe-t));
+  background: var(--m-yellow);
+  border-color: var(--m-black);
+  color: var(--m-black);
+  font-weight: 700;
+  box-shadow: 0 0 24px rgba(255, 199, 0, 0.45);
+  animation: badge-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) backwards;
+}
+.climb-hint.gone,
+.climb-badge.gone,
+.climb.ending .climb-hud,
+.climb.ending .climb-hint,
+.climb.ending .climb-badge {
+  opacity: 0;
+}
+.climb-bubble {
+  position: fixed;
+  z-index: 16;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 84px;
+  padding: 6px 16px 8px;
+  border-radius: 16px;
+  background: #0a0a0b;
+  border: 3px solid #ffc700;
+  box-shadow: 0 0 24px rgba(255, 199, 0, 0.35);
+  line-height: 1.1;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: bubble-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) backwards;
+  transition: opacity 0.4s;
+}
+.climb-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: inherit;
+  border: inherit;
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(45deg);
+}
+.climb-bubble small {
+  color: #eaeaeb;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.climb-bubble b {
+  color: #ffc700;
+  font-size: 30px;
+}
+.climb-bubble em {
+  color: #fff9e5;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+.climb-bubble.new em {
+  color: #ffc700;
+}
+.climb-bubble.out {
+  opacity: 0;
+}
+@keyframes bubble-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.3);
+  }
+}
+@keyframes badge-pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.4);
+  }
+}
+
 .logo {
   width: 120px;
   opacity: 0.9;

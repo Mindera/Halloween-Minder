@@ -13,6 +13,7 @@ import {
   type ItemKind,
   type MinderDef,
 } from './config';
+import { Climb } from './climb';
 import { buzz } from './feedback';
 import { Flingable } from './fling';
 import { Game } from './game';
@@ -87,6 +88,9 @@ class App {
   private wakeLock: { release(): Promise<void> } | null = null;
   private iconCache = new Map<string, HTMLCanvasElement>();
   private lastBoing = 0;
+  /** Title Minder throws in a row: the third one, once it lands back home, opens the secret climb. */
+  private throws = 0;
+  private climb = new Climb();
   private fling = new Flingable($<HTMLImageElement>('title-minder'), {
     onBounce: (speed) => {
       const now = performance.now();
@@ -95,6 +99,8 @@ class App {
       audio.play('boing');
       buzz(speed > 1500 ? 'medium' : 'light');
     },
+    onThrow: () => this.throws++,
+    onHome: () => this.openSecret(),
   });
 
   constructor() {
@@ -147,7 +153,11 @@ class App {
   // ------------------------------------------------------------ screens
 
   private show(id: string | null) {
-    if (id !== 'screen-title') this.fling.reset();
+    if (id !== 'screen-title') {
+      this.fling.reset();
+      this.climb.stop();
+      this.throws = 0;
+    }
     for (const s of SCREENS) $(s).hidden = s !== id;
   }
 
@@ -232,12 +242,34 @@ class App {
     this.loadMinderImages();
   }
 
+  /** Third throw in a row and the title Minder is back home: off it climbs, as the selected Minder. */
+  private openSecret() {
+    if (this.throws < 3 || this.state !== 'menu' || $('screen-title').hidden) return;
+    this.throws = 0;
+    const m = this.minders[0];
+    // Finding it is worth a sticker (announced inside the game, which covers the toasts).
+    const { stickers } = record({ type: 'secret' }, true);
+    flush();
+    this.climb.start({
+      home: $<HTMLImageElement>('title-minder'),
+      panel: document.querySelector<HTMLElement>('#screen-title .title-panel')!,
+      src: minderSrc(m.id),
+      iris: m.iris,
+      eye: m.eye,
+      announce: stickers.map((s) => this.stickerMessage(s.id)).join(' ') || undefined,
+    });
+  }
+
   // ------------------------------------------------------------ progress, stickers, costumes, settings
+
+  /** Sticker names may already end in "!" (and the message adds one), so collapse "!!" / "! !". */
+  private stickerMessage(id: string) {
+    return t('toast.sticker', { name: t(`stickers.${id}`) }).replace(/!([\s\u00a0]*!)+$/u, '!');
+  }
 
   private onEvent(e: GameEvent) {
     const { stickers, costumes } = record(e, !this.game.daily);
-    // Sticker names may already end in "!" (and the message adds one), so collapse "!!" / "! !".
-    for (const s of stickers) this.toast(t('toast.sticker', { name: t(`stickers.${s.id}`) }).replace(/!([\s\u00a0]*!)+$/u, '!'), '#ffd54f', true);
+    for (const s of stickers) this.toast(this.stickerMessage(s.id), '#ffd54f', true);
     for (const c of costumes) this.toast(t('toast.costume', { name: t(`wardrobe.${c}`) }), '#b2ff59', true);
     if (stickers.length || costumes.length) audio.play('item');
     if (stickers.length || costumes.length || e.type === 'clear' || e.type === 'reach') flush();
@@ -250,7 +282,8 @@ class App {
       const got = hasSticker(s.id);
       const [cur, goal] = s.progress(stats);
       const tilt = ((i * 37) % 13) - 6;
-      return `<div class="sticker${got ? '' : ' locked'}"><div class="face" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>${t(`stickers.${s.id}`)}${got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`}</div>`;
+      const name = !got && s.secret ? t('stickers.secretLocked') : t(`stickers.${s.id}`);
+      return `<div class="sticker${got ? '' : ' locked'}"><div class="face" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>${name}${got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`}</div>`;
     }).join('');
   }
 

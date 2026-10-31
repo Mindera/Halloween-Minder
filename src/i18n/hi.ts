@@ -109,6 +109,8 @@ export const hi: Dict = {
     doors10: '10 मिठाई-या-शरारत दरवाज़े खोले',
     pet: 'एक मॉन्स्टर से दोस्ती की',
     snacks: 'हर स्नैक चखा',
+    secret: 'राज़ खोज निकाला',
+    secretLocked: 'टॉप सीक्रेट 🤫',
   },
   wardrobe: {
     title: 'अलमारी',
@@ -250,6 +252,13 @@ export const hi: Dict = {
     caught: 'पकड़े गए!',
     back: 'गुड़िया ने तुम्हें हिलते देख लिया! वापस शुरुआत पर!',
     survived: 'तुम बच गए!',
+  },
+  climb: {
+    best: 'बेस्ट',
+    newBest: 'नया रिकॉर्ड!',
+    bestWas: 'बेस्ट: {n}',
+    hintTouch: 'चलने के लिए बाएँ या दाएँ दबाकर रखो · दागने के लिए टैप करो',
+    hintKeys: '← → से चलो · Space से दागो',
   },
   minders: {
     classic: { name: 'क्लासिक Minder', tagline: 'असली वाला। कभी पलक नहीं झपकाता।' },
