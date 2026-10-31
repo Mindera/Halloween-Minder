@@ -218,6 +218,12 @@ button {
     0 0 18px rgba(255, 212, 0, 0.9),
     0 4px 0 #5a1a5e;
 }
+#banner .squid {
+  color: #ff5ca8;
+  text-shadow:
+    0 0 18px rgba(255, 45, 135, 0.9),
+    0 4px 0 #063238;
+}
 #banner .small {
   margin-top: 4px;
   font-size: clamp(15px, 4.5vw, 24px);

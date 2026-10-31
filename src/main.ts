@@ -7,6 +7,7 @@ import {
   ITEMS,
   LEVEL_TIME,
   MINDERS,
+  SQUID_LEVEL,
   dailyKey,
   type EnemyKind,
   type ItemKind,
@@ -583,7 +584,8 @@ class App {
     this.input.enabled = true;
     this.input.reset();
     this.show(null);
-    if (this.game.phase !== 'dying') audio.startMusic(this.game.party ? 'party' : 'spooky');
+    // The Halloween Game level has no music, so you can hear the doll sing.
+    if (this.game.phase !== 'dying' && !this.game.squid) audio.startMusic(this.game.party ? 'party' : 'spooky');
     this.last = performance.now();
   }
 
@@ -620,10 +622,15 @@ class App {
       if (g.stage === 0) audio.startMusic('spooky');
       return;
     }
+    if (g.squid) {
+      this.banner(`<div class="big squid">${t('banner.level', { n: level })}</div>${theme}<div class="small">${t('squid.line')}</div>`, 3000);
+      audio.stopMusic();
+      return;
+    }
     const quips = ta('quips');
     const quip = quips[(level - 1) % quips.length];
     this.banner(`<div class="big">${t('banner.level', { n: level })}</div>${theme}<div class="small">${quip}</div>`, 2400);
-    if (level === ANNIVERSARY_LEVEL + 1 || level === 1) audio.startMusic('spooky');
+    if (level === ANNIVERSARY_LEVEL + 1 || level === SQUID_LEVEL + 1 || level === 1) audio.startMusic('spooky');
     if (level === 1 && g.coop && !isTouch()) {
       window.setTimeout(() => this.toast(t('banner.keys'), '#18ffff'), 2500);
     }
@@ -638,8 +645,8 @@ class App {
       );
       return;
     }
-    const title = this.game.daily ? t('banner.stageClear', { n: this.game.stage + 1 }) : t('banner.clear');
-    this.banner(`<div class="big">${title}</div><div class="small">${t('banner.bonus', { n: bonus.toLocaleString('en-US') })}</div><div class="cheer-row">${cheer}</div>`, 2800);
+    const title = this.game.daily ? t('banner.stageClear', { n: this.game.stage + 1 }) : t(this.game.squid ? 'squid.survived' : 'banner.clear');
+    this.banner(`<div class="big${this.game.squid ? ' squid' : ''}">${title}</div><div class="small">${t('banner.bonus', { n: bonus.toLocaleString('en-US') })}</div><div class="cheer-row">${cheer}</div>`, 2800);
   }
 
   private onGameOver(reason: string, won: boolean) {

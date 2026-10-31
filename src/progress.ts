@@ -72,6 +72,7 @@ export interface Stats {
   bestBlast: number;
   maxLevel: number;
   partyClears: number;
+  squidClears: number;
   dailyClears: number;
   coopClears: number;
   fastClears: number;
@@ -84,7 +85,7 @@ const STATS_KEY = 'hm.stats';
 const STICKERS_KEY = 'hm.stickers';
 export const stats: Stats = read<Stats>(STATS_KEY, {
   crates: 0, kills: 0, bombKills: 0, rabbits: 0, teleports: 0, bossKills: 0, bossBombOnly: 0, bestBlast: 0,
-  maxLevel: 0, partyClears: 0, dailyClears: 0, coopClears: 0, fastClears: 0, doors: 0, pets: 0, items: [],
+  maxLevel: 0, partyClears: 0, squidClears: 0, dailyClears: 0, coopClears: 0, fastClears: 0, doors: 0, pets: 0, items: [],
 });
 const earned = new Set<string>(read<{ list: string[] }>(STICKERS_KEY, { list: [] }).list);
 
@@ -107,6 +108,7 @@ export const STICKERS: Sticker[] = [
   { id: 'boss', icon: '🤓', progress: (s) => [s.bossKills, 1] },
   { id: 'bossBombs', icon: '💣', progress: (s) => [s.bossBombOnly, 1] },
   { id: 'party', icon: '🎂', progress: (s) => [s.partyClears, 1] },
+  { id: 'squid', icon: '🦑', progress: (s) => [s.squidClears, 1] },
   { id: 'level25', icon: '🥉', progress: (s) => [s.maxLevel, 25] },
   { id: 'level50', icon: '🥈', progress: (s) => [s.maxLevel, 50] },
   { id: 'level100', icon: '🏆', progress: (s) => [s.maxLevel, 100] },
@@ -130,7 +132,7 @@ export type GameEvent =
   | { type: 'item'; kind: ItemKind }
   | { type: 'teleport' }
   | { type: 'reach'; level: number }
-  | { type: 'clear'; level: number; timeLeft: number; party: boolean; coop: boolean }
+  | { type: 'clear'; level: number; timeLeft: number; party: boolean; coop: boolean; squid: boolean }
   | { type: 'dailyClear' }
   | { type: 'door' }
   | { type: 'pet' };
@@ -169,6 +171,7 @@ export function record(e: GameEvent, arcade: boolean): Rewards {
       break;
     case 'clear':
       if (e.party) stats.partyClears++;
+      if (e.squid) stats.squidClears++;
       if (e.coop) stats.coopClears++;
       if (e.timeLeft >= 60) stats.fastClears++;
       break;

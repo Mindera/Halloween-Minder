@@ -7,6 +7,8 @@ export const OPEN = 0;
 export const WALL = 1;
 /** A crate: blocks like a wall until eyeballs break it. */
 export const CRATE = 2;
+/** Doll stage while the maze is being carved: left alone by the carving, turned into wall at the end. */
+const STAGE = 3;
 
 export interface Maze {
   w: number;
@@ -27,6 +29,8 @@ export interface MazeFeatures {
   loops: number;
   /** Carve an open hall in the middle. */
   room: boolean;
+  /** Keep a solid block at the top centre for the giant doll to stand on (level 6). */
+  stage: boolean;
   /** Fraction of eligible walls turned into shortcut crates. */
   crates: number;
   /** Rooms sealed by crates: you have to shoot your way in to get their bits. */
@@ -74,6 +78,9 @@ export function generateMaze(w: number, h: number, rng: Rng, f: MazeFeatures): M
     walls[y * w + (w - 1 - x)] = v;
   };
   const get = (x: number, y: number) => walls[y * w + x];
+  // When the centre column is a wall column the stage's sides are cells, so the walls beside them must stay shut too (no stubs).
+  const side = mid % 2 === 1 ? 1 : 2;
+  if (f.stage) for (let y = 1; y <= 2; y++) for (let x = mid - side; x <= mid + side; x++) walls[y * w + x] = STAGE;
 
   // Recursive backtracker on the left half (cells at odd coordinates).
   const maxCx = mid % 2 === 1 ? mid : mid - 1;
@@ -97,7 +104,7 @@ export function generateMaze(w: number, h: number, rng: Rng, f: MazeFeatures): M
   // When the centre column is a wall column, punch a few doors through it.
   if (mid % 2 === 0) {
     const rows: number[] = [];
-    for (let y = 1; y < h - 1; y += 2) rows.push(y);
+    for (let y = 1; y < h - 1; y += 2) if (get(mid, y) === WALL) rows.push(y);
     const doors = Math.max(2, Math.floor(rows.length / 2));
     for (let i = 0; i < doors; i++) {
       const y = rows.splice(Math.floor(rng() * rows.length), 1)[0];
@@ -108,6 +115,7 @@ export function generateMaze(w: number, h: number, rng: Rng, f: MazeFeatures): M
   // Braid: remove every dead end.
   for (let y = 1; y < h - 1; y += 2) {
     for (let x = 1; x <= maxCx; x += 2) {
+      if (get(x, y) === STAGE) continue;
       const open = DIRS.filter((d) => get(x + d.x, y + d.y) === OPEN).length;
       if (open > 1) continue;
       const knock = DIRS.filter((d) => {
@@ -133,6 +141,7 @@ export function generateMaze(w: number, h: number, rng: Rng, f: MazeFeatures): M
     const cy = Math.floor(h / 2);
     for (let y = cy - 1; y <= cy + 1; y++) for (let x = Math.floor(mid) - 1; x <= Math.ceil(mid) + 1; x++) walls[y * w + x] = OPEN;
   }
+  for (let i = 0; i < w * h; i++) if (walls[i] === STAGE) walls[i] = WALL;
 
   return addFeatures(finish({ w, h, walls, spawns: [], start: { x: 0, y: 0 }, portals: [], umbrellas: [], doors: [] }), rng, f);
 }

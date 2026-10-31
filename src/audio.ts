@@ -34,9 +34,19 @@ export type Sfx =
   | 'boo'
   | 'fuse'
   | 'boom'
-  | 'cry';
+  | 'cry'
+  | 'chant'
+  | 'chantFast'
+  | 'chantSlow'
+  | 'turn'
+  | 'zap';
 
 const NOTE = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
+
+/** How long each version of the doll's song lasts: she turns round the moment it ends. */
+export const CHANT_TIME = { chant: 3.8, chantFast: 2.3, chantSlow: 5.4 };
+/** The doll's sing-song chant, as [note, beats]. */
+const CHANT: [number, number][] = [[67, 1], [67, 1], [67, 1.5], [64, 1], [67, 1], [67, 1], [64, 1], [69, 1], [67, 1], [64, 2]];
 
 /** With "no scary sounds" on, these are swapped for gentle ones (or silence). */
 const GENTLE: Partial<Record<Sfx, Sfx | null>> = { boo: 'appear', boss: 'item', spawn: null, boom: 'crack', glitch: 'click', death: 'cry' };
@@ -257,6 +267,28 @@ export class SoundBoard {
         break;
       case 'cry':
         [0, 0.28, 0.56].forEach((t, i) => this.tone(520 - i * 40, 0.25, 'triangle', 0.12, 380 - i * 40, t));
+        break;
+      case 'chant':
+      case 'chantFast':
+      case 'chantSlow': {
+        const beat = CHANT_TIME[s] / CHANT.reduce((sum, [, b]) => sum + b, 0);
+        CHANT.reduce((t, [n, b]) => {
+          this.tone(NOTE(n + 5), b * beat * 0.85, 'triangle', 0.2, NOTE(n + 5) * 0.99, t);
+          this.tone(NOTE(n + 17), b * beat * 0.5, 'sine', 0.05, undefined, t);
+          return t + b * beat;
+        }, 0);
+        break;
+      }
+      case 'turn':
+        // The doll's head creaking round, then her eyes switching on.
+        this.noise(0.65, 0.18, 1400, 0, 5);
+        this.tone(140, 0.65, 'sawtooth', 0.07, 110);
+        this.tone(NOTE(88), 0.12, 'square', 0.08, undefined, 0.72);
+        this.tone(NOTE(81), 0.2, 'square', 0.08, undefined, 0.84);
+        break;
+      case 'zap':
+        this.tone(1800, 0.4, 'sawtooth', 0.14, 160);
+        this.noise(0.3, 0.3, 3200, 0, 2);
         break;
       case 'firework':
         this.tone(900, 0.7, 'sine', 0.06, 2600);

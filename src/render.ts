@@ -2,7 +2,7 @@ import { BOSS_PHOTO, ENEMIES } from './config';
 import type { Enemy, Game, Player } from './game';
 import { CRATE, DIRS, WALL, type Maze } from './maze';
 import { MONSTER_ART, SpriteBank, bake, drawBomb, drawEyeball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
-import { THEMES, type ThemeArt } from './themes';
+import { THEMES, shape, type ThemeArt } from './themes';
 import { isRtl, t as tr, uiFont } from './i18n';
 import { outfit, settings } from './progress';
 
@@ -124,6 +124,127 @@ function drawCanopy(g: CanvasRenderingContext2D, party: boolean) {
   g.beginPath();
   g.arc(0, 0, 0.12, 0, Math.PI * 2);
   g.fill();
+}
+
+/** The doll stands on the solid block at the top centre of level 6 (see `stage` in maze.ts): feet at this row. */
+const DOLL_FEET = 2.72;
+/** Her eyes, relative to her feet. */
+const DOLL_EYES = { dx: 0.17, dy: -1.91 };
+
+/**
+ * The giant doll of the Halloween Game, in tile units with her feet at 0,0.
+ * `turn` goes from 0 (facing away, singing) to 1 (looking at you); `glow` lights up her eyes.
+ */
+function drawDoll(g: CanvasRenderingContext2D, turn: number, glow: number, tilt: number) {
+  const TAU = Math.PI * 2;
+  const disc = (x: number, y: number, r: number, color: string) => {
+    g.fillStyle = color;
+    g.beginPath();
+    g.arc(x, y, r, 0, TAU);
+    g.fill();
+  };
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  g.beginPath();
+  g.ellipse(0, 0, 0.5, 0.1, 0, 0, TAU);
+  g.fill();
+  for (const s of [-1, 1]) {
+    g.fillStyle = '#f2f2f2';
+    g.fillRect(s * 0.16 - 0.06, -0.46, 0.12, 0.42);
+    g.fillStyle = '#1b1b1b';
+    g.beginPath();
+    g.ellipse(s * 0.16, -0.05, 0.11, 0.07, 0, 0, TAU);
+    g.fill();
+    g.fillStyle = '#f6d3b3';
+    g.beginPath();
+    g.roundRect(s * 0.37 - 0.06, -1.3, 0.12, 0.46, 0.06);
+    g.fill();
+  }
+  g.fillRect(-0.07, -1.6, 0.14, 0.14);
+  // Yellow shirt with puffy sleeves under an orange pinafore (seen from the back: crossed straps).
+  g.fillStyle = '#ffd54f';
+  g.fillRect(-0.26, -1.5, 0.52, 0.2);
+  for (const s of [-1, 1]) disc(s * 0.3, -1.36, 0.15, '#ffd54f');
+  g.fillStyle = '#f57c00';
+  g.beginPath();
+  g.moveTo(-0.24, -1.36);
+  g.lineTo(0.24, -1.36);
+  g.lineTo(0.52, -0.42);
+  g.quadraticCurveTo(0, -0.33, -0.52, -0.42);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = '#f57c00';
+  g.lineWidth = 0.07;
+  g.beginPath();
+  g.moveTo(-0.2, -1.5);
+  g.lineTo(0.18, -1.3);
+  g.moveTo(0.2, -1.5);
+  g.lineTo(-0.18, -1.3);
+  g.stroke();
+  g.strokeStyle = '#c45c00';
+  g.lineWidth = 0.035;
+  g.beginPath();
+  g.moveTo(-0.5, -0.48);
+  g.quadraticCurveTo(0, -0.39, 0.5, -0.48);
+  g.stroke();
+
+  // Turning the head = squashing it sideways, with the face appearing halfway round.
+  g.save();
+  g.translate(0, -1.95);
+  g.rotate(tilt);
+  g.scale(Math.max(0.06, Math.abs(Math.cos(turn * Math.PI))), 1);
+  for (const s of [-1, 1]) {
+    g.fillStyle = '#141414';
+    g.beginPath();
+    g.ellipse(s * 0.56, 0.2, 0.12, 0.21, -s * 0.5, 0, TAU);
+    g.fill();
+    disc(s * 0.47, 0.06, 0.06, '#ffd54f');
+  }
+  disc(0, 0, 0.56, '#141414');
+  if (turn < 0.5) {
+    g.strokeStyle = 'rgba(255,255,255,0.18)';
+    g.lineWidth = 0.05;
+    g.beginPath();
+    g.arc(0, 0, 0.42, -2.6, -1.7);
+    g.stroke();
+  } else {
+    g.save();
+    g.beginPath();
+    g.arc(0, 0, 0.56, 0, TAU);
+    g.clip();
+    g.fillStyle = '#f8dcc0';
+    g.fillRect(-0.56, -0.56, 1.12, 1.12);
+    g.fillStyle = '#141414';
+    g.fillRect(-0.56, -0.56, 1.12, 0.42);
+    g.fillRect(-0.56, -0.56, 0.15, 0.92);
+    g.fillRect(0.41, -0.56, 0.15, 0.92);
+    g.restore();
+    for (const s of [-1, 1]) {
+      const ex = s * DOLL_EYES.dx;
+      const ey = DOLL_EYES.dy + 1.95;
+      if (glow > 0) {
+        const halo = g.createRadialGradient(ex, ey, 0, ex, ey, 0.3);
+        halo.addColorStop(0, `rgba(255,23,68,${0.85 * glow})`);
+        halo.addColorStop(1, 'rgba(255,23,68,0)');
+        g.fillStyle = halo;
+        g.fillRect(ex - 0.3, ey - 0.3, 0.6, 0.6);
+      }
+      g.fillStyle = glow > 0.5 ? '#ff1744' : '#111';
+      g.beginPath();
+      g.ellipse(ex, ey, 0.075, 0.095, 0, 0, TAU);
+      g.fill();
+      disc(ex - 0.025, ey - 0.03, 0.025, '#fff');
+      g.fillStyle = 'rgba(255,120,140,0.45)';
+      g.beginPath();
+      g.ellipse(s * 0.28, 0.2, 0.08, 0.05, 0, 0, TAU);
+      g.fill();
+    }
+    g.strokeStyle = '#c62828';
+    g.lineWidth = 0.03;
+    g.beginPath();
+    g.arc(0, 0.22, 0.06, 0.15 * Math.PI, 0.85 * Math.PI);
+    g.stroke();
+  }
+  g.restore();
 }
 
 export interface Rect {
@@ -329,6 +450,7 @@ export class Renderer {
     ctx.drawImage((matrix ? this.matrixLayer : this.mazeLayer)!, this.ox, this.oy, m.w * T, m.h * T);
     ctx.translate(this.ox, this.oy);
 
+    if (game.squid) this.drawDoll(game);
     this.drawPortals(game);
     this.drawDoors(game);
     this.drawCrates(game);
@@ -360,7 +482,14 @@ export class Renderer {
     this.drawPets(game);
     this.drawParticles(game);
     this.drawPopups(game);
+    if (game.squid) this.drawDollGaze(game);
     ctx.restore();
+
+    if (game.squid && game.phase === 'play' && game.light !== 'green') {
+      const red = game.light === 'red' ? 1 : 1 - game.lightLeft / game.lightLen;
+      ctx.fillStyle = `rgba(255,0,50,${red * (0.07 + Math.sin(game.time * 6) * 0.025)})`;
+      ctx.fillRect(0, 0, this.cw, this.ch);
+    }
 
     if (game.has('spice')) {
       const pulse = 0.16 + Math.sin(game.time * 8) * 0.04;
@@ -614,6 +743,64 @@ export class Renderer {
     }
   }
 
+  // ------------------------------------------------------------ the Halloween Game (level 6)
+
+  private drawDoll(game: Game) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    // She looks at you during the intro, turns away to sing, and turns back round to watch.
+    let turn = 1;
+    if (game.light === 'turn') turn = 1 - game.lightLeft / game.lightLen;
+    else if (game.light === 'green') turn = Math.max(0, 1 - (game.lightLen - game.lightLeft) / 0.3);
+    const glow = game.light === 'red' ? 1 : game.light === 'turn' ? Math.max(0, turn * 3 - 2) : 0;
+    const singing = game.phase === 'play' && game.light === 'green';
+    ctx.save();
+    ctx.translate((game.maze.w / 2) * T, DOLL_FEET * T);
+    ctx.scale(T, T);
+    drawDoll(ctx, turn, glow, singing ? Math.sin(game.time * 7) * 0.08 : 0);
+    ctx.restore();
+  }
+
+  /** Red light: a searchlight sweeping from her eyes, and a laser at whoever she caught moving. */
+  private drawDollGaze(game: Game) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    const m = game.maze;
+    const ex = (m.w / 2) * T;
+    const ey = (DOLL_FEET + DOLL_EYES.dy) * T;
+    if (game.phase === 'play' && game.light === 'red') {
+      const a = Math.PI / 2 + Math.sin(game.time * 1.3) * 0.8;
+      const len = Math.hypot(m.w, m.h) * T;
+      const beam = ctx.createRadialGradient(ex, ey, 0, ex, ey, len);
+      beam.addColorStop(0, 'rgba(255,40,80,0.32)');
+      beam.addColorStop(1, 'rgba(255,40,80,0)');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.arc(ex, ey, len, a - 0.13, a + 0.13);
+      ctx.closePath();
+      ctx.fill();
+    }
+    for (const z of game.zaps) {
+      const a = Math.min(1, z.life / 0.4);
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.shadowColor = '#ff1744';
+      ctx.shadowBlur = T * 0.5;
+      for (const s of [-1, 1]) {
+        for (const [width, color] of [[0.1, `rgba(255,23,68,${a})`], [0.035, `rgba(255,255,255,${a})`]] as const) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = T * width;
+          ctx.beginPath();
+          ctx.moveTo(ex + s * DOLL_EYES.dx * T, ey);
+          ctx.lineTo(z.x * T, z.y * T);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+  }
+
   private drawAmbient(game: Game, theme: ThemeArt) {
     const ctx = this.ctx;
     const T = this.tile;
@@ -700,6 +887,20 @@ export class Renderer {
           ctx.rotate(t * 4 + i);
           ctx.fillStyle = RAINBOW[i % RAINBOW.length];
           ctx.fillRect(-T * 0.06, -T * 0.025, T * 0.12, T * 0.05);
+          ctx.restore();
+        }
+        break;
+      case 'shapes':
+        ctx.lineWidth = T * 0.03;
+        for (let i = 0; i < 10; i++) {
+          const y = h + 1 - ((t * 0.5 + i * 2.3) % (h + 2));
+          const x = ((i * 3.7) % w) + Math.sin(t * 0.8 + i) * 0.4;
+          ctx.save();
+          ctx.translate(x * T, y * T);
+          ctx.rotate(Math.sin(t + i) * 0.5);
+          ctx.strokeStyle = i % 2 ? `rgba(${col},0.35)` : 'rgba(255,255,255,0.22)';
+          shape(ctx, i % 3, T * 0.12);
+          ctx.stroke();
           ctx.restore();
         }
         break;

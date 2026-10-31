@@ -1,5 +1,7 @@
 export const MAX_LEVEL = 100;
 export const ANNIVERSARY_LEVEL = 12;
+/** Level 6 is the Halloween Game: red light, green light with a giant doll. */
+export const SQUID_LEVEL = 6;
 export const LEVEL_TIME = 120;
 export const EFFECT_TIME = 10;
 export const SHARE_URL = 'https://mindera.github.io/Halloween-Minder/';
@@ -123,7 +125,7 @@ export const ITEMS: Record<ItemKind, ItemDef> = {
 
 
 
-export type ThemeId = 'graveyard' | 'pumpkins' | 'haunted' | 'forest' | 'lab' | 'servers' | 'swamp' | 'castle' | 'party';
+export type ThemeId = 'graveyard' | 'pumpkins' | 'haunted' | 'forest' | 'lab' | 'servers' | 'swamp' | 'castle' | 'party' | 'squid';
 
 const THEME_ORDER: ThemeId[] = ['graveyard', 'pumpkins', 'haunted', 'forest', 'lab', 'servers', 'swamp', 'castle'];
 
@@ -131,11 +133,13 @@ export const THEME_LIST: ThemeId[] = ['graveyard', 'pumpkins', 'haunted', 'fores
 
 
 export function themeFor(level: number): ThemeId {
-  return level === ANNIVERSARY_LEVEL ? 'party' : THEME_ORDER[(level - 1) % THEME_ORDER.length];
+  if (level === ANNIVERSARY_LEVEL) return 'party';
+  if (level === SQUID_LEVEL) return 'squid';
+  return THEME_ORDER[(level - 1) % THEME_ORDER.length];
 }
 
 const LOOPS: Record<ThemeId, number> = {
-  graveyard: 0.08, pumpkins: 0.14, haunted: 0.06, forest: 0.1, lab: 0.12, servers: 0.05, swamp: 0.16, castle: 0.08, party: 0,
+  graveyard: 0.08, pumpkins: 0.14, haunted: 0.06, forest: 0.1, lab: 0.12, servers: 0.05, swamp: 0.16, castle: 0.08, party: 0, squid: 0.12,
 };
 
 /** Maze extras by level: crates from level 1, portals from 2, umbrellas from 3. */
@@ -144,6 +148,7 @@ export function featuresFor(level: number) {
   return {
     loops: LOOPS[theme],
     room: theme === 'haunted' || theme === 'lab' || theme === 'castle',
+    stage: theme === 'squid',
     crates: Math.min(0.3, 0.08 + level * 0.01),
     vaults: level < 6 ? 1 : 2,
     portals: level < 2 ? 0 : level < 7 ? 1 : 2,

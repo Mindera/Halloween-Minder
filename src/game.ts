@@ -1,4 +1,4 @@
-import { audio, type Sfx } from './audio';
+import { CHANT_TIME, audio, type Sfx } from './audio';
 import {
   ANNIVERSARY_LEVEL,
   BOMB_FUSE,
@@ -28,7 +28,7 @@ import {
 import { buzz, type Buzz } from './feedback';
 import { say, ta, type Msg } from './i18n';
 import type { Input, Pad } from './input';
-import { CRATE, DIRS, OPEN, bfsFrom, generateAnniversaryMaze, generateMaze, isWall, makeRng, opposite, type Maze } from './maze';
+import { CRATE, DIRS, OPEN, bfsFrom, generateAnniversaryMaze, generateMaze, isWall, makeRng, opposite, type Maze, type Point } from './maze';
 import { settings, type GameEvent, type GhostRun } from './progress';
 import { PARTY_PELLET_KINDS, PELLET_KINDS } from './sprites';
 
@@ -156,6 +156,16 @@ export interface Popup {
 
 export type Phase = 'intro' | 'play' | 'clear' | 'dying' | 'over' | 'won';
 
+/** Red light, green light (level 6): the doll sings (green), turns round, then watches (red). */
+export type Light = 'green' | 'turn' | 'red';
+
+/** A laser from the doll's eyes to where she caught a minder moving. */
+export interface Zap {
+  x: number;
+  y: number;
+  life: number;
+}
+
 /** A sound, popup, burst or map change that the other phone has to replay in a networked game (see `Game.onFx`). */
 export type Fx =
   | { t: 'sfx'; s: Sfx }
@@ -206,6 +216,10 @@ const CRATE_HP = 2;
 const BOMB_BOSS_DAMAGE = 3;
 const PET_CHANCE = 0.1;
 const PET_LIFE = 15;
+/** Red light, green light: how long the doll takes to turn round, how long she watches, and the moment you get to let go. */
+const TURN_TIME = 0.8;
+const RED_TIME = [2, 3.4];
+const RED_GRACE = 0.3;
 /** The daily ghost is sampled every 0.1 s: x*20, y*20, face. */
 const GHOST_STEP = 0.1;
 
@@ -241,6 +255,11 @@ export class Game {
   item: Item | null = null;
   particles: Particle[] = [];
   popups: Popup[] = [];
+  /** Red light, green light on level 6 (`lightLeft` counts down from `lightLen`). */
+  light: Light = 'green';
+  lightLeft = 0;
+  lightLen = 0;
+  zaps: Zap[] = [];
   effects = new Map<ItemKind, number>();
   deathReason: Msg = '';
   killer: EnemyKind | null = null;
@@ -288,6 +307,8 @@ export class Game {
   private bag: ItemKind[] = [];
   private lastItem: ItemKind | null = null;
   private hints = new Set<string>();
+  /** Minders the doll already caught during this red light. */
+  private caught = new Set<number>();
   /** While the cockroach "bug" is active, input directions are remapped through this. */
   private scramble = [0, 1, 2, 3];
   private scrambleTimer = 0;
@@ -305,6 +326,10 @@ export class Game {
   /** Player 1 (kept for code that only cares about one minder). */
   get player(): Player {
     return this.players[0];
+  }
+
+  get squid() {
+    return this.theme === 'squid';
   }
 
   get party() {
@@ -377,11 +402,7 @@ export class Game {
       }
     }
     // Everybody is back for the new level (in co-op a knocked-out player returns).
-    const starts = [m.start];
-    if (this.coop) {
-      const side = [3, 1, 0, 2].map((d) => ({ x: m.start.x + DIRS[d].x, y: m.start.y + DIRS[d].y })).find((p) => !isWall(m, p.x, p.y));
-      starts.push(side ?? m.start);
-    }
+    const starts = this.coop ? [this.startTile(0), this.startTile(1)] : [m.start];
     this.players = starts.map((s, id) => ({
       id,
       x: s.x + 0.5,
@@ -407,6 +428,9 @@ export class Game {
     this.reverse = 0;
     this.stageClock = 0;
     this.recordTimer = 0;
+    this.light = 'green';
+    this.lightLeft = this.lightLen = 0;
+    this.zaps = [];
     if (this.daily && !this.coop) {
       this.recording[this.stage] = [];
       this.ghost = this.ghostRun?.stages[this.stage] ?? null;
@@ -466,6 +490,7 @@ export class Game {
     this.shake = Math.max(0, this.shake - dt);
     for (const p of this.players) if (p.emote !== 'none') p.emoteTime += dt;
     this.updateParticles(dt);
+    this.zaps = this.zaps.filter((z) => (z.life -= dt) > 0);
     this.ambience(dt);
     if (this.remote) return;
     switch (this.phase) {
@@ -474,6 +499,7 @@ export class Game {
         if (this.phaseTime <= 0) {
           this.phase = 'play';
           this.showHints();
+          if (this.squid) this.greenLight();
         }
         break;
       case 'play':
@@ -503,6 +529,13 @@ export class Game {
       return;
     }
     if (this.phase !== 'play') return;
+    if (this.squid && this.light === 'green' && Math.random() < dt * 2.5) {
+      // The doll is singing.
+      this.particles.push({
+        kind: 'note', x: this.maze.w / 2 + rand(-0.7, 0.7), y: 0.9, vx: rand(-0.8, 0.8), vy: rand(0.1, 0.5),
+        life: 1.2, max: 1.2, color: '#ff80ab', size: 0.4, rot: 0,
+      });
+    }
     for (const p of this.alivePlayers()) {
       if (this.has('spice') && Math.random() < dt * 25) {
         this.particles.push({
@@ -558,6 +591,8 @@ export class Game {
   }
 
   private updatePlay(dt: number) {
+    // While the doll is looking, everything holds still (the clock too).
+    if (this.squid && this.updateLight(dt)) return;
     this.timeLeft -= dt;
     this.stageClock += dt;
     this.scare = Math.max(0, this.scare - dt);
@@ -1223,6 +1258,79 @@ export class Game {
     }
   }
 
+  // ------------------------------------------------------------ red light, green light
+
+  /** Where a minder starts the level (in co-op, player 2 starts next to player 1). */
+  private startTile(id: number): Point {
+    const m = this.maze;
+    if (id === 0) return m.start;
+    return [3, 1, 0, 2].map((d) => ({ x: m.start.x + DIRS[d].x, y: m.start.y + DIRS[d].y })).find((p) => !isWall(m, p.x, p.y)) ?? m.start;
+  }
+
+  /** The doll faces the tree and sings; when the song ends she turns round. */
+  private greenLight() {
+    const r = this.rnd();
+    const song: Sfx = r < 0.25 ? 'chantFast' : r < 0.45 ? 'chantSlow' : 'chant';
+    this.light = 'green';
+    this.lightLeft = this.lightLen = CHANT_TIME[song];
+    this.sfx(song);
+  }
+
+  /** Returns true while the doll is watching: then nothing moves, and a minder who moves anyway is caught. */
+  private updateLight(dt: number): boolean {
+    this.lightLeft -= dt;
+    if (this.lightLeft <= 0) {
+      const mid = { x: this.maze.w / 2, y: this.maze.h / 2 };
+      if (this.light === 'green') {
+        this.light = 'turn';
+        this.lightLeft = this.lightLen = TURN_TIME;
+        this.sfx('turn');
+      } else if (this.light === 'turn') {
+        this.light = 'red';
+        this.lightLeft = this.lightLen = RED_TIME[0] + this.rnd() * (RED_TIME[1] - RED_TIME[0]);
+        this.caught.clear();
+        // Only what you press from now on counts.
+        for (const pad of this.input.pads) pad.dir = -1;
+        this.popup(mid.x, mid.y, msg('squid.red'), '#ff1744', 0.8);
+        this.buzz('medium');
+      } else {
+        this.greenLight();
+        this.popup(mid.x, mid.y, msg('squid.green'), '#69f0ae', 0.8);
+      }
+    }
+    if (this.light !== 'red') return false;
+    const watching = this.lightLen - this.lightLeft > RED_GRACE;
+    for (const p of this.alivePlayers()) {
+      const pad = this.input.pads[p.id];
+      const moved = pad.dir >= 0;
+      pad.dir = -1;
+      const fired = pad.consumeFire();
+      const bombed = pad.consumeBomb();
+      if (watching && (moved || fired || bombed) && !this.caught.has(p.id)) this.catchMover(p);
+    }
+    return true;
+  }
+
+  /** The doll saw a minder move: zap, and back to the start line it goes. */
+  private catchMover(p: Player) {
+    this.caught.add(p.id);
+    this.zaps.push({ x: p.x, y: p.y, life: 0.6 });
+    this.burst(p.x, p.y, ['#ff1744', '#ff80ab', '#ffffff'], 18, 0.09, 'spark');
+    this.popup(p.x, p.y - 0.6, msg('squid.caught'), '#ff1744', 0.45);
+    this.cb.toast(msg('squid.back'), '#ff80ab');
+    this.sfx('zap');
+    this.buzz('heavy');
+    const s = this.startTile(p.id);
+    p.x = s.x + 0.5;
+    p.y = s.y + 0.5;
+    p.dir = -1;
+    p.next = -1;
+    p.portal = -1;
+    p.invuln = Math.max(p.invuln, 1.5);
+    this.distFrom = '';
+    this.burst(p.x, p.y, ['#ff80ab', '#ffffff'], 12, 0.07, 'star');
+  }
+
   // ------------------------------------------------------------ items
 
   private updateItem(dt: number) {
@@ -1347,6 +1455,7 @@ export class Game {
       this.cb.toast(text, '#80deea');
       return true;
     };
+    if (this.squid && hint('squid', msg('squid.hint'))) return;
     if (m.walls.some((v) => v === CRATE) && hint('crate', msg('toast.hintCrate'))) return;
     if (m.portals.length && hint('portal', msg('toast.hintPortal'))) return;
     if (m.umbrellas.length) hint('umbrella', msg('toast.hintUmbrella'));
@@ -1417,7 +1526,7 @@ export class Game {
     this.eyes = [];
     this.bombs = [];
     for (const p of this.alivePlayers()) this.emote(p, 'cheer');
-    this.cb.event({ type: 'clear', level: this.level, timeLeft: this.timeLeft, party: this.party, coop: this.coop });
+    this.cb.event({ type: 'clear', level: this.level, timeLeft: this.timeLeft, party: this.party, coop: this.coop, squid: this.squid });
     this.sfx('clear');
     this.buzz('medium');
     this.confetti(60);

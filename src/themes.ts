@@ -2,7 +2,7 @@ import type { ThemeId } from './config';
 
 type G = CanvasRenderingContext2D;
 
-export type Ambient = 'fog' | 'fireflies' | 'leaves' | 'embers' | 'bubbles' | 'bats' | 'leds' | 'confetti';
+export type Ambient = 'fog' | 'fireflies' | 'leaves' | 'embers' | 'bubbles' | 'bats' | 'leds' | 'confetti' | 'shapes';
 
 /** Visual dressing for a level. Floor/wall decorations are in tile units centred on the tile. */
 export interface ThemeArt {
@@ -70,6 +70,46 @@ function pine(g: G, x: number, y: number, s: number) {
   }
   g.fill();
   g.fillRect(x - s * 0.05, y - s * 0.3, s * 0.1, s * 0.3);
+}
+
+/** Circle, triangle or square (the Halloween Game's card symbols), centred on 0,0. */
+export function shape(g: G, kind: number, s: number) {
+  g.beginPath();
+  if (kind === 0) g.arc(0, 0, s, 0, TAU);
+  else if (kind === 1) {
+    g.moveTo(0, -s * 1.1);
+    g.lineTo(s * 1.05, s * 0.75);
+    g.lineTo(-s * 1.05, s * 0.75);
+    g.closePath();
+  } else g.rect(-s * 0.9, -s * 0.9, s * 1.8, s * 1.8);
+}
+
+function cloud(g: G, x: number, y: number, s: number) {
+  g.beginPath();
+  g.ellipse(x, y, s, s * 0.45, 0, 0, TAU);
+  g.ellipse(x - s * 0.55, y + s * 0.1, s * 0.55, s * 0.32, 0, 0, TAU);
+  g.ellipse(x + s * 0.6, y + s * 0.12, s * 0.5, s * 0.3, 0, 0, TAU);
+  g.ellipse(x + s * 0.1, y - s * 0.3, s * 0.5, s * 0.38, 0, 0, TAU);
+  g.fill();
+}
+
+/** A pink-suited guard with a black mask, seen from far away. */
+function guard(g: G, x: number, y: number, s: number, kind: number) {
+  g.fillStyle = '#c2185b';
+  g.beginPath();
+  g.roundRect(x - s * 0.32, y - s * 1.1, s * 0.64, s * 1.1, s * 0.18);
+  g.fill();
+  g.beginPath();
+  g.arc(x, y - s * 1.32, s * 0.3, 0, TAU);
+  g.fill();
+  dot(g, x, y - s * 1.3, s * 0.22, '#111');
+  g.save();
+  g.translate(x, y - s * 1.3);
+  g.strokeStyle = '#fff';
+  g.lineWidth = s * 0.05;
+  shape(g, kind, s * 0.09);
+  g.stroke();
+  g.restore();
 }
 
 export const THEMES: Record<ThemeId, ThemeArt> = {
@@ -453,6 +493,73 @@ export const THEMES: Record<ThemeId, ThemeArt> = {
         g.lineTo(x + 11, 24);
         g.fill();
       }
+    },
+  },
+  /** Level 6, the Halloween Game: a painted-sky playground, pink guards and dalgona candy. */
+  squid: {
+    sky: ['#071f2c', '#0f4a63', '#1d7088'],
+    floor: 'rgba(8,38,42,0.86)',
+    glow: '#ff2d87',
+    body: '#b0145e',
+    highlight: '#ff7fb5',
+    ambient: 'shapes',
+    ambientColor: '255,120,180',
+    floorDeco: (g, r) => {
+      if (r < 0.07) {
+        // Chalk lines from the playground.
+        g.strokeStyle = 'rgba(235,245,240,0.16)';
+        g.lineWidth = 0.035;
+        g.save();
+        g.rotate(r * 40);
+        shape(g, Math.floor(r * 43) % 3, 0.2);
+        g.stroke();
+        g.restore();
+      } else if (r > 0.965) {
+        // Dalgona candy with a shape pressed in.
+        dot(g, 0.16, 0.16, 0.15, '#c98a2e');
+        dot(g, 0.16, 0.16, 0.12, '#e0a849');
+        g.strokeStyle = '#9a5f17';
+        g.lineWidth = 0.02;
+        g.save();
+        g.translate(0.16, 0.16);
+        shape(g, Math.floor(r * 1000) % 3, 0.05);
+        g.stroke();
+        g.restore();
+      }
+    },
+    wallDeco: (g, r) => {
+      if (r > 0.14) return;
+      g.strokeStyle = 'rgba(255,255,255,0.55)';
+      g.lineWidth = 0.035;
+      shape(g, Math.floor(r * 100) % 3, 0.09);
+      g.stroke();
+    },
+    scenery: (g, w, h, rnd) => {
+      // The painted sky of the playground wall.
+      g.fillStyle = 'rgba(230,245,255,0.16)';
+      for (let i = 0; i < 7; i++) cloud(g, rnd() * w, h * (0.1 + rnd() * 0.55), 22 + rnd() * 30);
+      const s = Math.min(w, h) * 0.2 + 30;
+      const tx = w * 0.84;
+      g.fillStyle = '#04141c';
+      g.fillRect(tx - s * 0.06, h - s * 1.2, s * 0.12, s * 1.2);
+      for (const [dx, dy, r] of [[0, -1.35, 0.42], [-0.32, -1.1, 0.32], [0.34, -1.12, 0.3], [0.05, -1.62, 0.28]]) dot(g, tx + dx * s, h + dy * s, r * s, '#04141c');
+      hills(g, w, h, '#06161d', 18, 70);
+      for (let i = 0; i < 9; i++) guard(g, ((i + 0.5) / 9) * w + (rnd() - 0.5) * 20, h - 4, 16 + rnd() * 8, i % 3);
+      // Glowing circle, triangle and square sign.
+      g.save();
+      g.shadowColor = '#ff2d87';
+      g.shadowBlur = 12;
+      g.strokeStyle = '#ff5ca8';
+      g.lineWidth = 3;
+      const sz = Math.min(w, h) * 0.03 + 6;
+      for (let k = 0; k < 3; k++) {
+        g.save();
+        g.translate(w * 0.12 + k * sz * 2.8, Math.min(h * 0.08, 60));
+        shape(g, k, sz);
+        g.stroke();
+        g.restore();
+      }
+      g.restore();
     },
   },
 };
