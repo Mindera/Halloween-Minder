@@ -24,7 +24,7 @@
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
+    "@capacitor/assets": "^4.0.0",
     "@capacitor/cli": "^8.5.3",
     "typescript": "^6.0.3",
     "vite": "^8.3.4"
