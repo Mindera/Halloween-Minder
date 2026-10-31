@@ -10,6 +10,7 @@
  *   (tap / Space). Bump into one and the Minder cries and falls.
  * - Fall off the bottom and the page scrolls back down to the title, where the Minder drops back into its spot
  *   and shows its score. The best score and height are kept on the device.
+ * - It plays a lighter, bouncier arrangement of the game's Halloween tune (`audio.startMusic('light')`).
  *
  * Everything runs in its own full-screen overlay on top of the title screen, which scrolls away underneath.
  * It is dressed in Mindera's colours (from mindera.com): brand yellow on black. The climber is the selected
@@ -362,6 +363,7 @@ export class Climb {
     window.addEventListener('blur', this.onBlur);
     window.addEventListener('resize', this.onResize);
     audio.play('appear');
+    audio.startMusic('light');
     buzz('light');
     this.prev = performance.now();
     const loop = (now: number) => {
@@ -386,6 +388,7 @@ export class Climb {
 
   private cleanup() {
     this.active = false;
+    audio.stopMusic();
     cancelAnimationFrame(this.frame);
     window.removeEventListener('keydown', this.onKey);
     window.removeEventListener('keyup', this.onKey);
@@ -844,6 +847,7 @@ export class Climb {
   }
 
   private die(hit: boolean) {
+    audio.stopMusic();
     this.phase = 'dead';
     this.phaseT = 0;
     this.broom = 0;
@@ -862,6 +866,7 @@ export class Climb {
 
   /** The page scrolls back down to the title screen. */
   private goHome() {
+    audio.stopMusic();
     this.phase = 'return';
     this.phaseT = 0;
     this.returnFrom = this.cam;

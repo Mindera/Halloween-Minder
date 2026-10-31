@@ -55,10 +55,14 @@ const CHANT: [number, number][] = [[67, 1], [67, 1], [67, 1.5], [64, 1], [67, 1]
  * Bars 1-8 creep about on a theremin over harpsichord, church organ and plucked bass; bars 9-16 are the
  * skeletons' dance on xylophone "bones" and bassoon. A midnight bell tolls at the top of each loop.
  * Each bar is its chord plus the tune as [note, eighths] (-1 is a rest).
+ *
+ * `light` is the same tune, lighter and a little faster, for the title screen's secret climb: a music box
+ * instead of the theremin, soft plucks and a sparse harpsichord, and no organ, bell, wind or bassoon.
  */
-const SPOOKY_STEP = 0.19;
+export type MusicMode = 'spooky' | 'light' | 'party';
+const STEP: Record<MusicMode, number> = { spooky: 0.19, light: 0.165, party: 0.16 };
 /** Music volume per tune: the Halloween dance has more going on, so it sits a little lower under the effects. */
-export const MUSIC_LEVEL = { spooky: 0.15, party: 0.22 };
+export const MUSIC_LEVEL: Record<MusicMode, number> = { spooky: 0.15, light: 0.21, party: 0.22 };
 const CHORDS = {
   Dm: { root: 50, notes: [62, 65, 69] },
   Gm: { root: 43, notes: [62, 67, 70] },
@@ -112,7 +116,7 @@ export class SoundBoard {
   private musicTimer?: number;
   private musicStep = 0;
   private musicNext = 0;
-  private musicMode: 'spooky' | 'party' = 'spooky';
+  private musicMode: MusicMode = 'spooky';
   /** Last theremin note, so the next one can glide from it. */
   private glide = 0;
   private pelletToggle = false;
@@ -372,7 +376,7 @@ export class SoundBoard {
     }
   }
 
-  startMusic(mode: 'spooky' | 'party') {
+  startMusic(mode: MusicMode) {
     this.stopMusic();
     if (!this.ctx) return;
     this.musicMode = mode;
@@ -392,14 +396,14 @@ export class SoundBoard {
   private scheduleMusic(horizon = 0.25) {
     const ctx = this.ctx;
     if (!ctx || !this.musicGain) return;
-    const spooky = this.musicMode === 'spooky';
-    const stepDur = spooky ? SPOOKY_STEP : 0.16;
+    const mode = this.musicMode;
+    const stepDur = STEP[mode];
     while (this.musicNext < ctx.currentTime + horizon) {
       const s = this.musicStep++;
       const t = Math.max(ctx.currentTime, this.musicNext);
       if (!this.muted) {
-        if (spooky) this.halloweenStep(s, t);
-        else this.partyStep(s, t - ctx.currentTime, stepDur);
+        if (mode === 'party') this.partyStep(s, t - ctx.currentTime, stepDur);
+        else this.halloweenStep(s, t, mode === 'light');
       }
       this.musicNext += stepDur;
     }
@@ -413,9 +417,9 @@ export class SoundBoard {
     this.tone(NOTE(lead[s % lead.length]), stepDur * 0.9, 'square', 0.12, undefined, delay, this.musicGain);
   }
 
-  /** One eighth note of the Halloween dance (see SONG), starting at time `t`. */
-  private halloweenStep(s: number, t: number) {
-    const d = SPOOKY_STEP;
+  /** One eighth note of the Halloween dance (see SONG), starting at time `t`; `light` for the climb's version. */
+  private halloweenStep(s: number, t: number, light: boolean) {
+    const d = STEP[light ? 'light' : 'spooky'];
     const bar = Math.floor(s / 8) % SONG.length;
     const step = s % 8;
     const { c, m } = SONG[bar];
@@ -430,8 +434,9 @@ export class SoundBoard {
         if (n < 0) this.glide = 0;
         else if (dance) {
           this.xylophone(NOTE(n + 12), t);
-          this.voice(NOTE(n - 12), t, len * d * 0.85, 0.1, { type: 'square', filter: 700, attack: 0.02, hold: 0.6 });
-        } else {
+          if (!light) this.voice(NOTE(n - 12), t, len * d * 0.85, 0.1, { type: 'square', filter: 700, attack: 0.02, hold: 0.6 });
+        } else if (light) this.musicBox(NOTE(n + 12), t, len * d);
+        else {
           const f = NOTE(n);
           this.voice(f, t, len * d * 0.97, 0.26, { attack: 0.05, hold: 0.8, vibrato: 30, from: this.glide || undefined });
           this.glide = f;
@@ -441,12 +446,19 @@ export class SoundBoard {
     }
 
     // Plucked bass on the beat, walking up a semitone into the next chord.
-    if (step === 0) this.pizz(NOTE(chord.root), t);
-    if (step === 4) this.pizz(NOTE(chord.root - 5), t);
-    if (step === 6) this.pizz(NOTE(next.root - 1), t);
-    // Harpsichord on the off-beats (crisper while the skeletons dance).
+    const pluck = light ? 0.3 : 0.45;
+    if (step === 0) this.pizz(NOTE(chord.root), t, pluck);
+    if (step === 4) this.pizz(NOTE(chord.root - 5), t, pluck);
+    if (step === 6) this.pizz(NOTE(next.root - 1), t, pluck);
+    // Harpsichord on the off-beats (crisper while the skeletons dance; just a light tick in the climb).
     if (step === 2 || step === 6) {
-      for (const n of chord.notes) this.voice(NOTE(n), t, dance ? 0.14 : 0.26, 0.05, { type: 'sawtooth', filter: 2600 });
+      for (const n of light ? chord.notes.slice(1) : chord.notes) {
+        this.voice(NOTE(n + (light ? 12 : 0)), t, dance || light ? 0.12 : 0.26, light ? 0.03 : 0.05, { type: 'sawtooth', filter: light ? 3200 : 2600 });
+      }
+    }
+    if (light) {
+      if (bar === 15 && step === 6) this.ghostly(t);
+      return;
     }
     // A soft church organ under the theremin.
     if (step === 0 && !dance) {
@@ -499,9 +511,17 @@ export class SoundBoard {
     osc.stop(t + dur + 0.05);
   }
 
-  private pizz(f: number, t: number) {
-    this.voice(f, t, 0.4, 0.45, { type: 'triangle' });
-    this.voice(f * 2, t, 0.09, 0.06, { type: 'square', filter: 1400 });
+  private pizz(f: number, t: number, vol = 0.45) {
+    this.voice(f, t, 0.4, vol, { type: 'triangle' });
+    this.voice(f * 2, t, 0.09, vol * 0.13, { type: 'square', filter: 1400 });
+  }
+
+  /** A music box: a bright ping that rings on, with quick shimmering overtones. */
+  private musicBox(f: number, t: number, dur: number) {
+    const ring = Math.max(0.5, dur * 1.6);
+    this.voice(f, t, ring, 0.2);
+    this.voice(f * 2, t, ring * 0.5, 0.06);
+    this.voice(f * 3.01, t, 0.12, 0.035);
   }
 
   /** Bones: a wooden tok with a bright overtone and a click. */
