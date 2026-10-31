@@ -1,6 +1,7 @@
 import { audio, type Sfx } from './audio';
 import {
   ANNIVERSARY_LEVEL,
+  BOSS_EVERY,
   EFFECT_TIME,
   ENEMIES,
   ITEMS,
@@ -8,19 +9,24 @@ import {
   LEVEL_TIME,
   MAX_LEVEL,
   difficulty,
+  featuresFor,
+  themeFor,
   type Difficulty,
   type EnemyKind,
   type ItemKind,
+  type ThemeId,
 } from './config';
 import { buzz } from './feedback';
 import type { Input } from './input';
-import { DIRS, bfs, generateAnniversaryMaze, generateMaze, isWall, makeRng, opposite, type Maze } from './maze';
+import { CRATE, DIRS, OPEN, bfs, generateAnniversaryMaze, generateMaze, isWall, makeRng, opposite, type Maze } from './maze';
 import { PARTY_PELLET_KINDS, PELLET_KINDS } from './sprites';
 
 export interface Mover {
   x: number;
   y: number;
   dir: number;
+  /** Tile we just teleported onto (so we don't bounce straight back), or -1. */
+  portal: number;
 }
 
 export interface Player extends Mover {
@@ -49,17 +55,26 @@ export interface Eye {
   y: number;
   dir: number;
   spin: number;
+  portal: number;
 }
 
-export interface Item {
-  kind: ItemKind;
+export interface Umbrella {
   x: number;
   y: number;
+  /** Seconds left open; while open, whatever is underneath is hidden. */
+  open: number;
+  cool: number;
+  /** 0 = closed, 1 = fully open (for the animation). */
+  anim: number;
+}
+
+export interface Item extends Mover {
+  kind: ItemKind;
   life: number;
   max: number;
 }
 
-export type ParticleKind = 'dot' | 'confetti' | 'note' | 'flame' | 'star';
+export type ParticleKind = 'dot' | 'confetti' | 'note' | 'flame' | 'star' | 'rocket' | 'spark' | 'debris';
 
 export interface Particle {
   kind: ParticleKind;
@@ -105,8 +120,10 @@ const SPLAT: Record<EnemyKind, string[]> = {
   witch: ['#7ccf4f', '#5b2a86', '#ff9f1a'],
   mummy: ['#e8dfc4', '#b8ab8a'],
   vampire: ['#b3123a', '#14081f', '#ece4f5'],
+  cousin: ['#4fc3f7', '#c8a97e', '#f1c27d'],
 };
 const CONFETTI = ['#ffd400', '#ff4081', '#40c4ff', '#69f0ae', '#ff9100', '#e040fb'];
+const CRATE_HP = 2;
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(arr: readonly T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -132,6 +149,12 @@ export class Game {
   deathReason = '';
   killer: EnemyKind | null = null;
   kills = 0;
+  theme: ThemeId = 'graveyard';
+  umbrellas: Umbrella[] = [];
+  /** Hits left on each crate tile. */
+  crateHp!: Uint8Array;
+  /** Teleport destination per tile, or -1. */
+  links!: Int32Array;
 
   private diff!: Difficulty;
   private queue: EnemyKind[] = [];
@@ -145,6 +168,12 @@ export class Game {
   private hintedPellets = false;
   private hintedEnemies = false;
   private cakeGiven = false;
+  private bag: ItemKind[] = [];
+  private lastItem: ItemKind | null = null;
+  private hints = new Set<string>();
+  /** While the cockroach "bug" is active, input directions are remapped through this. */
+  private scramble = [0, 1, 2, 3];
+  private scrambleTimer = 0;
   private seed = Math.floor(Math.random() * 1e9);
 
   constructor(
@@ -168,6 +197,8 @@ export class Game {
   start(level = 1) {
     this.score = 0;
     this.kills = 0;
+    this.hints.clear();
+    this.bag = [];
     this.startLevel(level);
   }
 
@@ -175,8 +206,18 @@ export class Game {
     this.level = level;
     const { w, h } = this.dims();
     const rng = makeRng(this.seed + level * 7919);
-    this.maze = this.party ? generateAnniversaryMaze(w, h, rng) : generateMaze(w, h, rng);
+    this.theme = themeFor(level);
+    const features = featuresFor(level);
+    this.maze = this.party ? generateAnniversaryMaze(w, h, rng, features) : generateMaze(w, h, rng, features);
     const m = this.maze;
+    this.links = new Int32Array(w * h).fill(-1);
+    for (const [a, b] of m.portals) {
+      this.links[a.y * w + a.x] = b.y * w + b.x;
+      this.links[b.y * w + b.x] = a.y * w + a.x;
+    }
+    this.crateHp = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) if (m.walls[i] === CRATE) this.crateHp[i] = CRATE_HP;
+    this.umbrellas = m.umbrellas.map((u) => ({ x: u.x + 0.5, y: u.y + 0.5, open: 0, cool: 0, anim: 0 }));
     this.pellets = new Int8Array(w * h).fill(-1);
     this.pelletCount = 0;
     const kinds = this.party ? PARTY_PELLET_KINDS : PELLET_KINDS;
@@ -184,6 +225,7 @@ export class Game {
       for (let x = 0; x < w; x++) {
         if (isWall(m, x, y)) continue;
         if (x === m.start.x && y === m.start.y) continue;
+        if (this.links[y * w + x] >= 0) continue;
         if (m.spawns.some((s) => s.x === x && s.y === y)) continue;
         this.pellets[y * w + x] = Math.floor(rng() * kinds);
         this.pelletCount++;
@@ -193,6 +235,7 @@ export class Game {
       x: m.start.x + 0.5,
       y: m.start.y + 0.5,
       dir: -1,
+      portal: -1,
       next: -1,
       face: 0,
       recoil: 0,
@@ -237,7 +280,10 @@ export class Game {
         }
       }
     }
-    return q.sort(() => Math.random() - 0.5);
+    q.sort(() => Math.random() - 0.5);
+    // The queue is popped from the end, so the boss at the front arrives last.
+    if (this.level % BOSS_EVERY === 0) q.unshift('cousin');
+    return q;
   }
 
   // ------------------------------------------------------------ update
@@ -248,7 +294,10 @@ export class Game {
     switch (this.phase) {
       case 'intro':
         this.phaseTime -= dt;
-        if (this.phaseTime <= 0) this.phase = 'play';
+        if (this.phaseTime <= 0) {
+          this.phase = 'play';
+          this.showHints();
+        }
         break;
       case 'play':
         this.updatePlay(dt);
@@ -256,6 +305,7 @@ export class Game {
       case 'clear':
         this.phaseTime -= dt;
         if (Math.random() < dt * 30) this.confetti(1);
+        if (this.party && Math.random() < dt * 4) this.launchRocket();
         if (this.phaseTime <= 0) {
           if (this.level >= MAX_LEVEL) {
             this.phase = 'won';
@@ -297,7 +347,11 @@ export class Game {
     p.recoil = Math.max(0, p.recoil - dt * 6);
 
     // Player
-    if (this.input.dir >= 0) p.next = this.input.dir;
+    if (this.has('roach')) {
+      this.scrambleTimer -= dt;
+      if (this.scrambleTimer <= 0) this.reshuffleControls();
+    }
+    if (this.input.dir >= 0) p.next = this.has('roach') ? this.scramble[this.input.dir] : this.input.dir;
     if (p.dir >= 0 && p.next === opposite(p.dir)) p.dir = p.next;
     const speed = PLAYER_SPEED * (this.has('spice') ? 1.55 : 1) * (this.has('pig') ? 0.8 : 1);
     const before = p.x + p.y;
@@ -311,7 +365,8 @@ export class Game {
     const maxEyes = this.has('coffee') ? 7 : 3;
     if (fire && this.fireCooldown <= 0 && this.eyes.length < maxEyes) {
       const d = DIRS[p.face];
-      this.eyes.push({ x: p.x + d.x * 0.3, y: p.y + d.y * 0.3, dir: p.face, spin: 0 });
+      // An eyeball fired while standing on a portal shouldn't get warped by that same portal.
+      this.eyes.push({ x: p.x + d.x * 0.3, y: p.y + d.y * 0.3, dir: p.face, spin: 0, portal: Math.floor(p.y) * this.maze.w + Math.floor(p.x) });
       this.fireCooldown = this.has('coffee') ? 0.11 : 0.3;
       p.recoil = 1;
       this.sfx('shoot');
@@ -321,7 +376,7 @@ export class Game {
     // Distance map for chasing monsters.
     const pt = Math.floor(p.y) * this.maze.w + Math.floor(p.x);
     if (pt !== this.distFrom) {
-      bfs(this.maze, Math.floor(p.x), Math.floor(p.y), this.distMap);
+      bfs(this.maze, Math.floor(p.x), Math.floor(p.y), this.distMap, this.links);
       this.distFrom = pt;
     }
 
@@ -336,6 +391,7 @@ export class Game {
     }
 
     this.updateItem(dt);
+    this.updateUmbrellas(dt);
 
     if (this.has('spice') && Math.random() < dt * 25) {
       this.particles.push({
@@ -390,6 +446,7 @@ export class Game {
         m.x = cx;
         m.y = cy;
         dist -= need;
+        this.teleport(m);
         decide();
         decided = true;
         continue;
@@ -398,6 +455,7 @@ export class Game {
         m.x = cx;
         m.y = cy;
         if (!decided) {
+          this.teleport(m);
           decide();
           decided = true;
           continue;
@@ -416,8 +474,28 @@ export class Game {
       m.x = cx + d.x;
       m.y = cy + d.y;
       dist -= need;
+      this.teleport(m);
       decide();
       decided = true;
+    }
+  }
+
+  /** Called whenever a walker reaches a tile centre. */
+  private teleport(m: Mover) {
+    const w = this.maze.w;
+    const i = Math.floor(m.y) * w + Math.floor(m.x);
+    if (m.portal === i) return;
+    m.portal = -1;
+    const to = this.links[i];
+    if (to < 0) return;
+    this.burst(m.x, m.y, ['#80deea', '#e1f5fe', '#b388ff'], 10, 0.07, 'star');
+    m.x = (to % w) + 0.5;
+    m.y = Math.floor(to / w) + 0.5;
+    m.portal = to;
+    this.burst(m.x, m.y, ['#80deea', '#e1f5fe', '#b388ff'], 10, 0.07, 'star');
+    if (m === this.player) {
+      this.sfx('warp');
+      this.distFrom = -1;
     }
   }
 
@@ -430,8 +508,14 @@ export class Game {
     const tx = Math.floor(p.x);
     const ty = Math.floor(p.y);
     if (p.next >= 0) {
+      const ahead = (ty + DIRS[p.next].y) * this.maze.w + tx + DIRS[p.next].x;
       if (this.open(tx, ty, p.next)) p.dir = p.next;
       else if (p.dir < 0) p.face = p.next;
+      else if (p.next !== p.dir && this.maze.walls[ahead] === CRATE) {
+        // Pushing towards a crate at the side: stop and face it so it can be shot.
+        p.dir = -1;
+        p.face = p.next;
+      }
     }
     if (p.dir >= 0) {
       if (this.open(tx, ty, p.dir)) p.face = p.dir;
@@ -462,13 +546,28 @@ export class Game {
         e.x += (d.x * speed * dt) / steps;
         e.y += (d.y * speed * dt) / steps;
         e.spin += dt * 12;
-        if (isWall(this.maze, Math.floor(e.x + d.x * 0.15), Math.floor(e.y + d.y * 0.15))) {
+        const m = this.maze;
+        const tx = Math.floor(e.x);
+        const ty = Math.floor(e.y);
+        const ti = ty * m.w + tx;
+        if (this.links[ti] >= 0 && e.portal !== ti) {
+          const to = this.links[ti];
+          e.x = (to % m.w) + 0.5;
+          e.y = Math.floor(to / m.w) + 0.5;
+          e.portal = to;
+        } else if (e.portal >= 0 && e.portal !== ti) {
+          e.portal = -1;
+        }
+        const ax = Math.floor(e.x + d.x * 0.15);
+        const ay = Math.floor(e.y + d.y * 0.15);
+        if (isWall(m, ax, ay)) {
+          if (m.walls[ay * m.w + ax] === CRATE) this.hitCrate(ax, ay);
           this.burst(e.x, e.y, ['#ffffff', '#ffcdd2'], 5, 0.06);
           return false;
         }
         for (const en of this.enemies) {
           if (en.rising > 0) continue;
-          const r = fatHit * (en.kind === 'minipumpkin' ? 0.8 : 1);
+          const r = fatHit * (en.kind === 'minipumpkin' ? 0.8 : en.kind === 'cousin' ? 1.5 : 1);
           if (Math.abs(en.x - e.x) < r && Math.abs(en.y - e.y) < r) {
             this.hitEnemy(en);
             return false;
@@ -479,12 +578,36 @@ export class Game {
     });
   }
 
+  private hitCrate(x: number, y: number) {
+    const m = this.maze;
+    const i = y * m.w + x;
+    this.crateHp[i] = Math.max(0, this.crateHp[i] - 1);
+    if (this.crateHp[i] > 0) {
+      this.sfx('crack');
+      this.popup(x + 0.5, y + 0.2, 'CRACK!', '#ffcc80', 0.3);
+      return;
+    }
+    m.walls[i] = OPEN;
+    this.distFrom = -1;
+    this.addScore(25);
+    this.sfx('crunch');
+    buzz('light');
+    this.popup(x + 0.5, y + 0.2, pick(['SMASH!', 'KRAK!', 'BOOM!', 'Ctrl+X!']), '#ffb74d', 0.38);
+    for (let k = 0; k < 12; k++) {
+      this.particles.push({
+        kind: 'debris', x: x + 0.5 + rand(-0.3, 0.3), y: y + 0.5 + rand(-0.3, 0.3), vx: rand(-3, 3), vy: rand(-4, -1),
+        life: rand(0.5, 0.9), max: 0.9, color: pick(['#8d6e63', '#a1887f', '#6d4c41', '#d7ccc8']), size: rand(0.06, 0.12), rot: rand(0, 6),
+      });
+    }
+  }
+
   private hitEnemy(e: Enemy) {
     e.hp--;
     e.flash = 0.15;
     if (e.hp > 0) {
       this.sfx('hit');
-      this.popup(e.x, e.y - 0.4, 'OUCH!', '#ffeb3b', 0.35);
+      const word = e.kind === 'cousin' ? pick(['Hey!', 'Rude!', "I'm telling Palos!", 'My polo!', 'Not the glasses!']) : 'OUCH!';
+      this.popup(e.x, e.y - (e.kind === 'cousin' ? 0.9 : 0.4), word, '#ffeb3b', 0.35);
       return;
     }
     this.killEnemy(e, pick(KILL_WORDS));
@@ -501,6 +624,13 @@ export class Game {
     this.burst(e.x, e.y, SPLAT[e.kind], 16, 0.1);
     this.sfx('kill');
     buzz('light');
+    if (e.kind === 'cousin') {
+      this.confetti(70);
+      this.burst(e.x, e.y, ['#4fc3f7', '#f1c27d', '#ffd400'], 30, 0.14, 'star');
+      if (this.enemiesLeft === 0) this.hintedEnemies = true;
+      this.cb.toast(`You beat Palos' cousin! Ultimate boss defeated!${this.enemiesLeft === 0 && this.pelletCount > 0 ? ' Now grab the last bits!' : ''}`, '#ffd400');
+      buzz('heavy');
+    }
     if (e.kind === 'pumpkin' && this.level >= 5) {
       for (const s of [-1, 1]) this.addEnemy('minipumpkin', e.x, e.y, 0, s > 0 ? e.dir : opposite(e.dir));
       this.popup(e.x, e.y + 0.2, 'Pumpkin split!', '#ff9800', 0.32);
@@ -518,7 +648,11 @@ export class Game {
       .filter((o) => o.d < 0 || o.d >= 5);
     const choice = options.length ? pick(options).s : m.spawns.reduce((a, b) => (this.distMap[b.y * m.w + b.x] > this.distMap[a.y * m.w + a.x] ? b : a));
     this.addEnemy(kind, choice.x + 0.5, choice.y + 0.5, 0.9, -1);
-    this.sfx('spawn');
+    if (kind === 'cousin') {
+      this.cb.toast("BOSS! Palos' cousin has entered the maze! (10 eyeballs)", '#ff5252');
+      this.sfx('boss');
+      buzz('heavy');
+    } else this.sfx('spawn');
   }
 
   private addEnemy(kind: EnemyKind, x: number, y: number, rising: number, dir: number) {
@@ -531,7 +665,8 @@ export class Game {
       x: def.phases ? x : tx + 0.5,
       y: def.phases ? y : ty + 0.5,
       dir: dir >= 0 && this.open(tx, ty, dir) ? dir : -1,
-      hp: def.hp + this.diff.hpBonus,
+      portal: -1,
+      hp: kind === 'cousin' ? def.hp : def.hp + this.diff.hpBonus,
       rising,
       stun: 0,
       mad: 0,
@@ -558,7 +693,7 @@ export class Game {
         e.rising -= dt;
         continue;
       }
-      if (cricket && e.mad <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 3.5) {
+      if (cricket && e.mad <= 0 && e.kind !== 'cousin' && Math.hypot(e.x - p.x, e.y - p.y) < 3.5) {
         e.mad = 0.9;
         this.popup(e.x, e.y - 0.4, pick(['?!', 'AAAH!', 'TOO LOUD!', 'MY EARS!']), '#b2ff59', 0.3);
       }
@@ -579,9 +714,11 @@ export class Game {
         e.walk += dt * speed;
       }
 
-      const reach = (this.has('pig') ? 0.75 : 0.6) * (this.has('eclair') ? 1.15 : 1);
+      const reach = (this.has('pig') ? 0.75 : 0.6) * (this.has('eclair') ? 1.15 : 1) * (e.kind === 'cousin' ? 1.3 : 1);
       if (Math.abs(e.x - p.x) < reach && Math.abs(e.y - p.y) < reach) {
-        if (frozen) {
+        if (frozen && e.kind === 'cousin') {
+          // Even a Blue Screen can't delete Palos' cousin: you have to shoot him.
+        } else if (frozen) {
           this.killEnemy(e, 'Ctrl+Alt+Del!');
         } else if (e.stun > 0) {
           // Dizzy monsters are harmless.
@@ -662,6 +799,8 @@ export class Game {
       return;
     }
     const it = this.item;
+    // The White Rabbit doesn't sit still: it hops away and you have to chase it.
+    if (it.kind === 'rabbit') this.advance(it, 3.3 * dt, () => this.rabbitDecide(it));
     it.life -= dt;
     if (it.life <= 0) {
       this.item = null;
@@ -673,6 +812,21 @@ export class Game {
       this.itemTimer = rand(8, 15);
       this.applyItem(it.kind, it.x, it.y);
     }
+  }
+
+  private rabbitDecide(r: Item) {
+    const p = this.player;
+    const tx = Math.floor(r.x);
+    const ty = Math.floor(r.y);
+    const back = opposite(r.dir);
+    let opts = [0, 1, 2, 3].filter((d) => d !== back && this.open(tx, ty, d));
+    if (!opts.length) opts = [0, 1, 2, 3].filter((d) => this.open(tx, ty, d));
+    if (!opts.length) {
+      r.dir = -1;
+      return;
+    }
+    const away = (d: number) => Math.abs(tx + DIRS[d].x - p.x) + Math.abs(ty + DIRS[d].y - p.y);
+    r.dir = Math.random() < 0.7 ? opts.reduce((a, b) => (away(b) > away(a) ? b : a)) : pick(opts);
   }
 
   private spawnItem() {
@@ -692,14 +846,86 @@ export class Game {
       kind = 'cake';
       this.cakeGiven = true;
     } else {
-      const pool = (Object.keys(ITEMS) as ItemKind[]).filter((k) => ITEMS[k].weight > 0);
-      const total = pool.reduce((s, k) => s + ITEMS[k].weight, 0);
-      let r = Math.random() * total;
-      kind = pool.find((k) => (r -= ITEMS[k].weight) <= 0) ?? 'candy';
+      kind = this.nextItem();
     }
     const life = rand(10, 15);
-    this.item = { kind, x: (i % m.w) + 0.5, y: Math.floor(i / m.w) + 0.5, life, max: life };
+    this.item = { kind, x: (i % m.w) + 0.5, y: Math.floor(i / m.w) + 0.5, dir: -1, portal: -1, life, max: life };
     this.sfx('appear');
+  }
+
+  /** Shuffle bag: every item comes out once (or `weight` times) before the bag refills, and never twice in a row. */
+  private nextItem(): ItemKind {
+    if (!this.bag.length) {
+      for (const k of Object.keys(ITEMS) as ItemKind[]) for (let n = 0; n < ITEMS[k].weight; n++) this.bag.push(k);
+      for (let i = this.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+      }
+    }
+    let idx = this.bag.length - 1;
+    if (this.bag[idx] === this.lastItem) {
+      const other = this.bag.findIndex((k) => k !== this.lastItem);
+      if (other >= 0) idx = other;
+    }
+    const kind = this.bag.splice(idx, 1)[0];
+    this.lastItem = kind;
+    return kind;
+  }
+
+  /** A derangement: every direction ends up somewhere else (left might become right, up might become left...). */
+  private reshuffleControls() {
+    let perm: number[];
+    do {
+      perm = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+    } while (perm.some((v, i) => v === i));
+    this.scramble = perm;
+    this.scrambleTimer = 3;
+    if (this.has('roach') && this.phase === 'play') this.sfx('glitch');
+  }
+
+  private updateUmbrellas(dt: number) {
+    for (const u of this.umbrellas) {
+      if (u.open > 0) {
+        u.open -= dt;
+        u.anim = Math.min(1, u.anim + dt * 5);
+        if (u.open <= 0) {
+          u.cool = 4;
+          this.sfx('umbrella');
+        }
+        continue;
+      }
+      u.anim = Math.max(0, u.anim - dt * 4);
+      u.cool -= dt;
+      if (u.cool > 0) continue;
+      const opener = this.enemies.find((e) => e.rising <= 0 && Math.abs(e.x - u.x) < 0.6 && Math.abs(e.y - u.y) < 0.6);
+      if (opener) {
+        u.open = rand(6, 9);
+        this.sfx('umbrella');
+        this.popup(u.x, u.y - 0.9, pick(['Hide and seek!', "Can't see me!", 'Peekaboo!', 'Shhh...']), '#ce93d8', 0.3);
+      }
+    }
+  }
+
+  private showHints() {
+    const m = this.maze;
+    const hint = (key: string, text: string) => {
+      if (this.hints.has(key)) return false;
+      this.hints.add(key);
+      this.cb.toast(text, '#80deea');
+      return true;
+    };
+    if (m.walls.some((v) => v === CRATE) && hint('crate', 'Tip: shoot the crates to smash through!')) return;
+    if (m.portals.length && hint('portal', 'Tip: step into a swirly portal to teleport!')) return;
+    if (m.umbrellas.length) hint('umbrella', 'Watch out! Monsters open umbrellas to hide under them!');
+  }
+
+  private launchRocket() {
+    const m = this.maze;
+    this.particles.push({
+      kind: 'rocket', x: rand(1, m.w - 1), y: m.h, vx: rand(-0.6, 0.6), vy: rand(-11, -8),
+      life: rand(0.8, 1.3), max: 1.3, color: pick(CONFETTI), size: 0.1, rot: 0,
+    });
+    this.sfx('firework');
   }
 
   private applyItem(kind: ItemKind, x: number, y: number) {
@@ -709,7 +935,7 @@ export class Game {
     buzz('medium');
     const sounds: Record<ItemKind, Sfx> = {
       cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp',
-      computer: 'bsod', coffee: 'slurp', candy: 'candy', cake: 'candy',
+      computer: 'bsod', coffee: 'slurp', roach: 'glitch', rabbit: 'matrix', candy: 'candy', cake: 'candy',
     };
     this.sfx(sounds[kind]);
     if (kind === 'candy') {
@@ -725,6 +951,10 @@ export class Game {
     }
     this.effects.set(kind, EFFECT_TIME);
     if (kind === 'computer') this.popup(x, y - 0.4, ':(', '#82b1ff', 0.6);
+    if (kind === 'roach') {
+      this.reshuffleControls();
+      this.popup(x, y - 0.4, 'BUG FOUND!', '#69f0ae', 0.45);
+    }
   }
 
   private addScore(n: number) {
@@ -747,12 +977,13 @@ export class Game {
     const bonus = (Math.ceil(this.timeLeft) * 10 + this.level * 100) * mult;
     this.score += bonus;
     this.phase = 'clear';
-    this.phaseTime = 3;
+    this.phaseTime = this.party ? 7 : 3;
     this.effects.clear();
     this.eyes = [];
     this.sfx('clear');
     buzz('medium');
     this.confetti(60);
+    if (this.party) for (let i = 0; i < 4; i++) this.launchRocket();
     this.cb.levelClear(this.level, bonus);
   }
 
@@ -788,10 +1019,24 @@ export class Game {
   }
 
   private updateParticles(dt: number) {
+    const born: Particle[] = [];
     for (const p of this.particles) {
       p.life -= dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      if (p.kind === 'spark' || p.kind === 'debris') p.vy += dt * 9;
+      if (p.kind === 'rocket' && p.life <= 0) {
+        const n = 36;
+        const colors = [p.color, pick(CONFETTI), '#ffffff'];
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          const v = rand(3, 6);
+          born.push({
+            kind: 'spark', x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+            life: rand(0.9, 1.5), max: 1.5, color: colors[i % 3], size: rand(0.06, 0.1), rot: 0,
+          });
+        }
+      }
       if (p.kind === 'dot' || p.kind === 'star') {
         p.vx *= 1 - dt * 4;
         p.vy *= 1 - dt * 4;
@@ -799,7 +1044,8 @@ export class Game {
       if (p.kind === 'confetti') p.rot += dt * 6;
       if (p.kind === 'flame') p.size *= 1 - dt * 1.5;
     }
-    if (this.particles.length > 400) this.particles.splice(0, this.particles.length - 400);
+    this.particles.push(...born);
+    if (this.particles.length > 600) this.particles.splice(0, this.particles.length - 600);
     this.particles = this.particles.filter((p) => p.life > 0);
     for (const t of this.popups) {
       t.life -= dt;

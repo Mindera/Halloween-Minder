@@ -19,10 +19,18 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 - Clear a level by grabbing **every IT bit** (0s, 1s, floppies, chips, bugs, USB sticks…) **and** bonking **every monster**.
 - You have **2 minutes** per level. If a monster touches you, or time runs out, it's game over.
 - Monsters get faster, smarter and more numerous each level. There are **100 levels**, and level 100 is close to impossible.
-- **Level 12 is Mindera's anniversary party**: a giant "12" maze, rainbow walls, cupcakes, a birthday cake bonus, *Happy Birthday* music and double points.
+- **Level 12 is Mindera's anniversary party**: a giant "12" maze, rainbow walls, cupcakes, a birthday cake bonus, *Happy Birthday* music and double points. Clear it for fireworks and *Happy Anniversary Mindera!*
+- **Every level has its own scenery**: Graveyard, Pumpkin Patch, Haunted House, Spooky Forest, Mad Lab, Server Room of Doom, Witch Swamp and Vampire Castle, each with its own floor, walls, background and ambient effects (fog, fireflies, falling leaves, bubbles, blinking server LEDs, embers, bats).
+- **Maze extras**:
+  - 📦 **Crates** take two eyeballs to smash. Some rooms are sealed with crates, so you have to shoot your way in to collect their bits. Push towards a crate at the side of a corridor and the Minder stops and faces it.
+  - 🌀 **Portals** (from level 2) teleport the Minder, the monsters and even your eyeballs.
+  - ☂️ **Umbrellas** (from level 3) pop open when a monster walks under them and hide whatever is underneath.
+- **Ultimate boss: Palos' cousin.** A perfectly normal person who arrives last on every 10th level (including level 100), takes 10 eyeballs, can't be zapped by the cricket and has a health bar. To use a real photo instead of the cartoon, put the image in `public/` and set `BOSS_PHOTO` in `src/config.ts`.
 - When you die, the game-over screen shows your score and high score (top 10, stored on the device), with a **Share** button. Share uses the native share sheet on iOS/Android, Web Share on mobile browsers (with a generated score-card image), or WhatsApp / X / Facebook / LinkedIn / copy links as a fallback.
 
 ### Bonus items (appear for 10–15 s, last 10 s)
+
+Items come out of a shuffled bag, so you see every item before any repeats.
 
 | Item | Effect |
 |---|---|
@@ -33,12 +41,14 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 | 🍺 Root Beer | Wobbly, blurry screen. Hic! |
 | 💻 Computer | Blue Screen of Death: monsters freeze, so touch them to delete them |
 | ☕ Coffee | Rapid-fire eyeballs |
+| 🪳 Cockroach | "Ups, we found a bug!" The screen glitches and the controls get scrambled (they reshuffle every few seconds) |
+| 🐇 White Rabbit | It hops away from you. Catch it and the maze turns into the Matrix: green code, digital rain |
 | 🍬 Candy | +1000 points |
 | 🎂 Cake | Level 12 only, +1200 points |
 
 ### Monsters
 
-Zombie, Pumpkin (splits in two from level 5), Skeleton, Bat, Ghost and Witch (both fly through walls), Mummy (3 hits) and Vampire (turns into bats). New monsters unlock as the levels go up.
+Zombie, Pumpkin (splits in two from level 5), Skeleton, Bat, Ghost and Witch (both fly through walls), Mummy (3 hits) and Vampire (turns into bats). New monsters unlock as the levels go up. Then there's Palos' cousin (see above).
 
 ### Minders
 
@@ -61,8 +71,9 @@ The game is plain TypeScript and Canvas 2D with no game engine, bundled by Vite.
 src/
   main.ts      screens, layout, HUD, game loop
   game.ts      game rules: movement, monster AI, shooting, items, levels, timer
-  maze.ts      symmetric braided maze generator + the level-12 "12" maze
-  render.ts    canvas renderer (neon walls, effects, particles)
+  maze.ts      symmetric braided maze generator, crates/portals/umbrellas, the level-12 "12" maze
+  render.ts    canvas renderer (walls, crates, portals, umbrellas, effects, particles)
+  themes.ts    per-level scenery: sky, floor, walls, ambient effects
   sprites.ts   procedural monster / item / IT-bit art
   input.ts     keyboard, D-pad, fire button, swipe and tap
   audio.ts     WebAudio sound effects and music

@@ -316,6 +316,46 @@ const drawVampire: Draw = (g, f) => {
   g.fill();
 };
 
+/** Palos' cousin: just a regular person. Polo shirt, khakis, glasses, phone full of holiday photos. */
+const drawCousin: Draw = (g, f) => {
+  g.fillStyle = '#c8a97e';
+  g.fillRect(-0.15, 0.2, 0.12, f ? 0.26 : 0.24);
+  g.fillRect(0.03, 0.2, 0.12, f ? 0.24 : 0.26);
+  g.fillStyle = '#5d4037';
+  g.fillRect(-0.17, f ? 0.44 : 0.42, 0.15, 0.05);
+  g.fillRect(0.02, f ? 0.42 : 0.44, 0.15, 0.05);
+  g.fillStyle = '#4fc3f7';
+  rrect(g, -0.22, -0.08, 0.44, 0.32, 0.08);
+  g.fillStyle = '#29b6f6';
+  g.beginPath();
+  g.moveTo(-0.08, -0.08);
+  g.lineTo(0, 0.02);
+  g.lineTo(0.08, -0.08);
+  g.fill();
+  g.fillStyle = '#f1c27d';
+  rrect(g, -0.3, -0.04, 0.09, 0.24, 0.04);
+  rrect(g, 0.21, f ? -0.12 : -0.08, 0.09, 0.2, 0.04);
+  g.fillStyle = '#263238';
+  rrect(g, 0.2, f ? -0.2 : -0.16, 0.12, 0.16, 0.02);
+  g.fillStyle = '#80deea';
+  g.fillRect(0.215, f ? -0.185 : -0.145, 0.09, 0.12);
+  g.fillStyle = '#f1c27d';
+  circle(g, 0, -0.27, 0.2);
+  g.fillStyle = '#6d4c41';
+  g.beginPath();
+  g.moveTo(-0.2, -0.28);
+  g.quadraticCurveTo(-0.18, -0.52, 0.02, -0.48);
+  g.quadraticCurveTo(0.22, -0.48, 0.2, -0.28);
+  g.quadraticCurveTo(0.12, -0.4, -0.2, -0.28);
+  g.fill();
+  g.strokeStyle = '#212121';
+  g.lineWidth = 0.025;
+  g.strokeRect(-0.15, -0.33, 0.12, 0.1);
+  g.strokeRect(0.03, -0.33, 0.12, 0.1);
+  line(g, [-0.03, -0.29, 0.03, -0.29], 0.02, '#212121');
+  line(g, [-0.07, -0.16, 0, -0.13, 0.07, -0.16], 0.02, '#8d6e63');
+};
+
 interface MonsterArt {
   draw: Draw;
   eyes: EyeAnchor[];
@@ -332,6 +372,7 @@ export const MONSTER_ART: Record<EnemyKind, MonsterArt> = {
   witch: { draw: drawWitch, eyes: [{ x: -0.05, y: -0.11, r: 0.055 }, { x: 0.07, y: -0.11, r: 0.055 }], scale: 1 },
   mummy: { draw: drawMummy, eyes: [{ x: -0.08, y: -0.22, r: 0.075 }, { x: 0.09, y: -0.22, r: 0.065 }], scale: 1 },
   vampire: { draw: drawVampire, eyes: [{ x: -0.08, y: -0.15, r: 0.065 }, { x: 0.08, y: -0.15, r: 0.065 }], scale: 1 },
+  cousin: { draw: drawCousin, eyes: [{ x: -0.09, y: -0.28, r: 0.045 }, { x: 0.09, y: -0.28, r: 0.045 }], scale: 1.5 },
 };
 
 // ---------------------------------------------------------------- bonus items
@@ -482,6 +523,65 @@ const drawCoffee: Draw = (g) => {
   g.fillRect(-0.22, 0.04, 0.42, 0.07);
 };
 
+const drawRoach: Draw = (g, f) => {
+  const wiggle = f ? 0.04 : -0.04;
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      const y = -0.08 + i * 0.12;
+      line(g, [s * 0.1, y, s * 0.26, y + (i - 1) * 0.08 + wiggle * s, s * 0.34, y + (i - 1) * 0.12], 0.025, '#3e2723');
+    }
+  }
+  g.strokeStyle = '#3e2723';
+  g.lineWidth = 0.018;
+  g.beginPath();
+  g.moveTo(-0.04, -0.26);
+  g.quadraticCurveTo(-0.15, -0.45, -0.32 + wiggle, -0.42);
+  g.moveTo(0.04, -0.26);
+  g.quadraticCurveTo(0.15, -0.45, 0.32 - wiggle, -0.42);
+  g.stroke();
+  g.fillStyle = '#6d3b1f';
+  ellipse(g, 0, 0.05, 0.15, 0.26);
+  g.fillStyle = '#8d5a2b';
+  ellipse(g, -0.05, 0.08, 0.07, 0.2, 0.1);
+  ellipse(g, 0.05, 0.08, 0.07, 0.2, -0.1);
+  line(g, [0, -0.12, 0, 0.3], 0.015, '#3e2723');
+  g.fillStyle = '#4e342e';
+  ellipse(g, 0, -0.22, 0.09, 0.07);
+  g.fillStyle = '#fff';
+  circle(g, -0.04, -0.24, 0.03);
+  circle(g, 0.04, -0.24, 0.03);
+  g.fillStyle = '#000';
+  circle(g, -0.035, -0.235, 0.015);
+  circle(g, 0.045, -0.235, 0.015);
+};
+
+const drawRabbit: Draw = (g, f) => {
+  const hop = f ? -0.04 : 0;
+  g.fillStyle = '#f5f5f5';
+  for (const s of [-1, 1]) {
+    g.save();
+    g.translate(s * 0.09, -0.2 + hop);
+    g.rotate(s * (f ? 0.25 : 0.12));
+    ellipse(g, 0, -0.18, 0.06, 0.2);
+    g.fillStyle = '#f8bbd0';
+    ellipse(g, 0, -0.17, 0.03, 0.14);
+    g.restore();
+    g.fillStyle = '#f5f5f5';
+  }
+  ellipse(g, 0, 0.18 + hop * 0.5, 0.22, 0.17);
+  circle(g, 0, -0.05 + hop, 0.17);
+  g.fillStyle = '#111';
+  g.beginPath();
+  g.roundRect(-0.15, -0.1 + hop, 0.13, 0.07, 0.03);
+  g.roundRect(0.02, -0.1 + hop, 0.13, 0.07, 0.03);
+  g.fill();
+  line(g, [-0.02, -0.07 + hop, 0.02, -0.07 + hop], 0.02, '#111');
+  g.fillStyle = '#f06292';
+  circle(g, 0, 0.02 + hop, 0.03);
+  line(g, [-0.04, 0.03 + hop, -0.2, 0.0 + hop], 0.01, '#9e9e9e');
+  line(g, [0.04, 0.03 + hop, 0.2, 0.0 + hop], 0.01, '#9e9e9e');
+};
+
 const drawCandy: Draw = (g) => {
   g.fillStyle = '#8e44ad';
   for (const s of [-1, 1]) {
@@ -534,6 +634,8 @@ export const ITEM_ART: Record<ItemKind, Draw> = {
   beer: drawBeer,
   computer: drawComputer,
   coffee: drawCoffee,
+  roach: drawRoach,
+  rabbit: drawRabbit,
   candy: drawCandy,
   cake: drawCake,
 };
@@ -572,18 +674,13 @@ const PELLETS: Draw[] = [
     g.fillStyle = '#39ff88';
     circle(g, -0.05, -0.05, 0.02);
   },
+  // A cloud (the IT kind): deliberately not an insect, so it can't be mistaken for the cricket bonus.
   (g) => {
-    line(g, [-0.1, -0.08, -0.16, -0.12], 0.02, '#1b5e20');
-    line(g, [0.1, -0.08, 0.16, -0.12], 0.02, '#1b5e20');
-    line(g, [-0.12, 0.0, -0.18, 0.0], 0.02, '#1b5e20');
-    line(g, [0.12, 0.0, 0.18, 0.0], 0.02, '#1b5e20');
-    line(g, [-0.1, 0.08, -0.16, 0.12], 0.02, '#1b5e20');
-    line(g, [0.1, 0.08, 0.16, 0.12], 0.02, '#1b5e20');
-    g.fillStyle = '#43a047';
-    ellipse(g, 0, 0.02, 0.11, 0.13);
-    g.fillStyle = '#1b5e20';
-    circle(g, 0, -0.12, 0.06);
-    line(g, [0, -0.08, 0, 0.14], 0.015, '#1b5e20');
+    g.fillStyle = '#b3e5fc';
+    circle(g, -0.08, 0.03, 0.08);
+    circle(g, 0.02, -0.03, 0.1);
+    circle(g, 0.1, 0.04, 0.07);
+    rrect(g, -0.16, 0.02, 0.32, 0.09, 0.045);
   },
   (g) => {
     g.fillStyle = '#c9d3df';

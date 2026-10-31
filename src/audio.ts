@@ -20,7 +20,15 @@ export type Sfx =
   | 'tick'
   | 'spawn'
   | 'click'
-  | 'party';
+  | 'party'
+  | 'crack'
+  | 'crunch'
+  | 'warp'
+  | 'umbrella'
+  | 'firework'
+  | 'glitch'
+  | 'matrix'
+  | 'boss';
 
 const NOTE = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
 
@@ -190,6 +198,42 @@ export class SoundBoard {
         break;
       case 'click':
         this.tone(880, 0.04, 'triangle', 0.1);
+        break;
+      case 'crack':
+        this.noise(0.06, 0.3, 1800, 0, 3);
+        this.tone(180, 0.06, 'square', 0.1, 120);
+        break;
+      case 'crunch':
+        this.noise(0.3, 0.45, 500, 0, 0.7);
+        this.noise(0.15, 0.3, 2200, 0.05, 2);
+        this.tone(120, 0.25, 'sawtooth', 0.15, 50);
+        break;
+      case 'warp':
+        this.tone(300, 0.18, 'sine', 0.2, 1400);
+        this.tone(1400, 0.22, 'sine', 0.15, 250, 0.16);
+        break;
+      case 'umbrella':
+        this.noise(0.22, 0.3, 900, 0, 1.5);
+        this.tone(220, 0.2, 'triangle', 0.12, 440);
+        break;
+      case 'glitch':
+        for (let i = 0; i < 7; i++) this.tone(200 + Math.random() * 1800, 0.04, 'square', 0.1, 100 + Math.random() * 2000, i * 0.05);
+        this.noise(0.12, 0.2, 4000, 0.1, 8);
+        break;
+      case 'matrix':
+        [88, 84, 81, 76, 72, 69, 64, 60].forEach((n, i) => this.tone(NOTE(n), 0.08, 'square', 0.08, undefined, i * 0.06));
+        this.tone(NOTE(48), 0.8, 'sawtooth', 0.12, NOTE(36), 0.5);
+        break;
+      case 'boss':
+        [[43, 0], [43, 0.35], [39, 0.7]].forEach(([n, t]) => {
+          this.tone(NOTE(n), n === 39 ? 1.1 : 0.3, 'sawtooth', 0.22, n === 39 ? NOTE(34) : undefined, t);
+          this.tone(NOTE(n + 12), n === 39 ? 1.1 : 0.3, 'square', 0.08, undefined, t);
+        });
+        break;
+      case 'firework':
+        this.tone(900, 0.7, 'sine', 0.06, 2600);
+        this.noise(0.6, 0.35, 300, 0.9, 0.6);
+        this.noise(0.4, 0.2, 3000, 0.95, 1);
         break;
       case 'party':
         // "Happy Birthday" (public-domain melody).

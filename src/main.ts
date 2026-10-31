@@ -1,6 +1,6 @@
 import './style.css';
 import { audio } from './audio';
-import { ANNIVERSARY_LEVEL, ENEMIES, ITEMS, LEVEL_QUIPS, LEVEL_TIME, MINDERS, type EnemyKind, type ItemKind, type MinderDef } from './config';
+import { ANNIVERSARY_LEVEL, ENEMIES, ITEMS, LEVEL_QUIPS, LEVEL_TIME, MINDERS, THEME_NAMES, themeFor, type EnemyKind, type ItemKind, type MinderDef } from './config';
 import { Game } from './game';
 import { Input } from './input';
 import { pickDims } from './maze';
@@ -24,6 +24,8 @@ const ITEM_HELP: Record<ItemKind, string> = {
   beer: 'Root beer! The screen gets wobbly and blurry. Hic!',
   computer: 'Blue Screen of Death! Monsters freeze — touch them to delete.',
   coffee: 'Rapid-fire eyeballs!',
+  roach: 'Ups, we found a bug! The game glitches and the controls get mixed up.',
+  rabbit: 'It runs away! Catch it to enter the Matrix.',
   candy: '+1000 sweet points.',
   cake: 'Only at the level 12 party. +1200!',
 };
@@ -45,6 +47,7 @@ class App {
   private bannerTimer = 0;
   private partyTimer = 0;
   private effectKey = '';
+  private glitchy = false;
   private card: Blob | null = null;
   private cardUrl = '';
   private shareInfo?: ShareInfo;
@@ -207,6 +210,7 @@ class App {
       if (k === 'pumpkin') notes.push('splits in two from level 5');
       if (k === 'vampire') notes.push('turns into bats');
       if (k === 'bat') notes.push('fast and silly');
+      if (k === 'cousin') notes.push('the ultimate boss: a perfectly normal person who takes 10 eyeballs');
       const row = document.createElement('div');
       row.append(
         this.icon(
@@ -220,7 +224,7 @@ class App {
       );
       row.insertAdjacentHTML(
         'beforeend',
-        `<span><b>${def.name}</b> · ${def.points} pts<br>${notes.join(', ') || 'chases you around'} (from level ${def.unlock})</span>`,
+        `<span><b>${def.name}</b> · ${def.points} pts<br>${notes.join(', ') || 'chases you around'} (${k === 'cousin' ? `every ${def.unlock}th level` : `from level ${def.unlock}`})</span>`,
       );
       monsters.appendChild(row);
     }
@@ -312,17 +316,20 @@ class App {
         if (this.state === 'playing' && this.game.party) audio.startMusic('party');
       }, 9000);
     } else {
-      this.banner(`<div class="big">LEVEL ${level}</div><div class="small">${quip}</div>`, 2200);
+      this.banner(`<div class="big">LEVEL ${level}</div><div class="small theme-name">${THEME_NAMES[themeFor(level)]}</div><div class="small">${quip}</div>`, 2400);
       if (level === ANNIVERSARY_LEVEL + 1 || level === 1) audio.startMusic('spooky');
     }
   }
 
   private onLevelClear(level: number, bonus: number) {
-    const party = level === ANNIVERSARY_LEVEL;
-    this.banner(
-      `<div class="big${party ? ' party' : ''}">${party ? 'BEST PARTY EVER!' : 'LEVEL CLEAR!'}</div><div class="small">Time bonus +${bonus.toLocaleString('en-US')}</div>`,
-      2800,
-    );
+    if (level === ANNIVERSARY_LEVEL) {
+      this.banner(
+        `<div class="big party">HAPPY<br>ANNIVERSARY<br>MINDERA!</div><div class="small">🎆 Time bonus +${bonus.toLocaleString('en-US')} 🎆</div>`,
+        6800,
+      );
+      return;
+    }
+    this.banner(`<div class="big">LEVEL CLEAR!</div><div class="small">Time bonus +${bonus.toLocaleString('en-US')}</div>`, 2800);
   }
 
   private onGameOver(reason: string, won: boolean) {
@@ -448,6 +455,11 @@ class App {
     $('hud-time-wrap').classList.toggle('hurry', g.phase === 'play' && s <= 20 && s < LEVEL_TIME);
     this.setText('hud-enemies', String(g.enemiesLeft));
     this.setText('hud-bits', String(g.pelletCount));
+    const glitchy = this.state === 'playing' && g.has('roach');
+    if (glitchy !== this.glitchy) {
+      this.glitchy = glitchy;
+      this.appEl.classList.toggle('glitchy', glitchy);
+    }
 
     const kinds = [...g.effects.keys()];
     const key = kinds.join(',');

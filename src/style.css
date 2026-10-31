@@ -238,6 +238,38 @@ button {
   animation: wiggle 0.6s infinite alternate ease-in-out;
 }
 
+#banner .theme-name {
+  color: var(--yellow);
+  font-size: clamp(16px, 5vw, 26px);
+  letter-spacing: 0.05em;
+}
+
+/* The cockroach "bug": the HUD and messages glitch too. */
+#app.glitchy #hud,
+#app.glitchy #controls {
+  animation: glitch-shake 0.3s infinite steps(2);
+}
+#app.glitchy #toast {
+  font-family: monospace;
+  color: #69f0ae !important;
+  text-shadow:
+    2px 0 #ff1744,
+    -2px 0 #00e5ff;
+}
+@keyframes glitch-shake {
+  0% {
+    transform: translate(2px, 0) skewX(4deg);
+    filter: hue-rotate(90deg);
+  }
+  50% {
+    transform: translate(-3px, 1px) skewX(-6deg);
+  }
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
 /* ------------------------------------------------------------- touch controls */
 
 #controls {

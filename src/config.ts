@@ -28,6 +28,8 @@ export const MINDERS: MinderDef[] = [
   { id: 'bow', name: 'Bow Minder', tagline: 'Cute. Brave. Very cute.', iris: '#1abc9c' },
 ];
 
+const BOSS_EVERY_LEVELS = 10;
+
 export type EnemyKind =
   | 'zombie'
   | 'pumpkin'
@@ -37,7 +39,8 @@ export type EnemyKind =
   | 'ghost'
   | 'witch'
   | 'mummy'
-  | 'vampire';
+  | 'vampire'
+  | 'cousin';
 
 export interface EnemyDef {
   name: string;
@@ -65,9 +68,16 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
   witch: { name: 'Witch', speed: 1.9, hp: 2, points: 300, phases: true, unlock: 6, weight: 1.5, smarts: 0, deathLine: 'Turned into a toad by a witch! Ribbit.' },
   mummy: { name: 'Mummy', speed: 2.0, hp: 3, points: 300, phases: false, unlock: 8, weight: 1.5, smarts: 0.3, deathLine: 'All wrapped up by a mummy!' },
   vampire: { name: 'Vampire', speed: 3.2, hp: 2, points: 400, phases: false, unlock: 10, weight: 1.2, smarts: 0.2, deathLine: 'A vampire wanted a byte!' },
+  // The ultimate boss: a perfectly normal person. Never picked at random, see BOSS_EVERY.
+  cousin: { name: "Palos' cousin", speed: 2.5, hp: 10, points: 5000, phases: false, unlock: BOSS_EVERY_LEVELS, weight: 0, smarts: 0.45, deathLine: "Palos' cousin cornered you with 400 holiday photos!" },
 };
 
-export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'candy' | 'cake';
+/** Palos' cousin shows up at the end of every 10th level (and of level 100). */
+export const BOSS_EVERY = BOSS_EVERY_LEVELS;
+/** Optional photo for Palos' cousin, e.g. 'boss/palos-cousin.png' in public/. Empty = cartoon drawing. */
+export const BOSS_PHOTO = '';
+
+export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'roach' | 'rabbit' | 'candy' | 'cake';
 
 export interface ItemDef {
   name: string;
@@ -77,14 +87,17 @@ export interface ItemDef {
   instant?: boolean;
 }
 
+/** Weights are counts in a shuffled bag, so every item shows up before any repeats. */
 export const ITEMS: Record<ItemKind, ItemDef> = {
-  cricket: { name: 'Cricket', toast: 'CRICKET! Chirp chirp... nearby monsters go bonkers!', weight: 3 },
+  cricket: { name: 'Cricket', toast: 'CRICKET! Chirp chirp... nearby monsters go bonkers!', weight: 2 },
   spice: { name: 'Hot Spice', toast: 'HOT SPICE! Turbo red mode!', weight: 3 },
   pig: { name: 'Pig', toast: 'PIG! Big belly bounces monsters away!', weight: 3 },
   eclair: { name: 'Eclair', toast: 'ECLAIR! The monsters ate way too much...', weight: 3 },
   beer: { name: 'Root Beer', toast: 'ROOT BEER! Whoa... everything is wobbly. Hic!', weight: 2 },
   computer: { name: 'Computer', toast: 'COMPUTER! Monsters got the Blue Screen of Death!', weight: 2 },
   coffee: { name: 'Coffee', toast: 'COFFEE! Rapid-fire eyeballs!', weight: 3 },
+  roach: { name: 'Cockroach', toast: 'Ups, we found a bug! The controls are glitching!', weight: 2 },
+  rabbit: { name: 'White Rabbit', toast: 'You caught the White Rabbit! Welcome to the Matrix...', weight: 2 },
   candy: { name: 'Candy', toast: 'CANDY! +1000 sweet points!', weight: 2, instant: true },
   cake: { name: 'Birthday Cake', toast: 'HAPPY 12TH BIRTHDAY MINDERA! +1200!', weight: 0, instant: true },
 };
@@ -103,6 +116,43 @@ export const LEVEL_QUIPS = [
   'Git push --force the monsters out!',
   '404: Courage not found. Just kidding!',
 ];
+
+export type ThemeId = 'graveyard' | 'pumpkins' | 'haunted' | 'forest' | 'lab' | 'servers' | 'swamp' | 'castle' | 'party';
+
+const THEME_ORDER: ThemeId[] = ['graveyard', 'pumpkins', 'haunted', 'forest', 'lab', 'servers', 'swamp', 'castle'];
+
+export const THEME_NAMES: Record<ThemeId, string> = {
+  graveyard: 'The Graveyard',
+  pumpkins: 'Pumpkin Patch',
+  haunted: 'Haunted House',
+  forest: 'Spooky Forest',
+  lab: 'Mad Lab',
+  servers: 'Server Room of Doom',
+  swamp: 'Witch Swamp',
+  castle: 'Vampire Castle',
+  party: 'Mindera Party Hall',
+};
+
+export function themeFor(level: number): ThemeId {
+  return level === ANNIVERSARY_LEVEL ? 'party' : THEME_ORDER[(level - 1) % THEME_ORDER.length];
+}
+
+const LOOPS: Record<ThemeId, number> = {
+  graveyard: 0.08, pumpkins: 0.14, haunted: 0.06, forest: 0.1, lab: 0.12, servers: 0.05, swamp: 0.16, castle: 0.08, party: 0,
+};
+
+/** Maze extras by level: crates from level 1, portals from 2, umbrellas from 3. */
+export function featuresFor(level: number) {
+  const theme = themeFor(level);
+  return {
+    loops: LOOPS[theme],
+    room: theme === 'haunted' || theme === 'lab' || theme === 'castle',
+    crates: Math.min(0.3, 0.08 + level * 0.01),
+    vaults: level < 6 ? 1 : 2,
+    portals: level < 2 ? 0 : level < 7 ? 1 : 2,
+    umbrellas: level < 3 ? 0 : Math.min(4, 2 + Math.floor(level / 8)),
+  };
+}
 
 export interface Difficulty {
   speedMul: number;
