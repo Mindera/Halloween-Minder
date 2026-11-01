@@ -572,6 +572,27 @@ export function drawFootball(g: G, r: number, spin: number) {
   g.restore();
 }
 
+/** A light switch on its wall plate (the switch flips between the two frames). */
+const drawLights: Draw = (g, f) => {
+  g.fillStyle = '#f5f0e1';
+  rrect(g, -0.24, -0.34, 0.48, 0.68, 0.07);
+  g.strokeStyle = '#a89f86';
+  g.lineWidth = 0.03;
+  g.beginPath();
+  g.roundRect(-0.24, -0.34, 0.48, 0.68, 0.07);
+  g.stroke();
+  g.fillStyle = '#9e9580';
+  circle(g, 0, -0.27, 0.025);
+  circle(g, 0, 0.27, 0.025);
+  g.fillStyle = '#d8d0bb';
+  rrect(g, -0.1, -0.18, 0.2, 0.36, 0.04);
+  g.fillStyle = '#fff';
+  rrect(g, -0.075, f ? -0.16 : 0.01, 0.15, 0.15, 0.03);
+  g.beginPath();
+  g.roundRect(-0.075, f ? -0.16 : 0.01, 0.15, 0.15, 0.03);
+  g.stroke();
+};
+
 /** Bola de matraquilhos: a little red table-football player on its rod, and the ball. */
 const drawFoosball: Draw = (g, f) => {
   line(g, [-0.46, -0.16, 0.46, -0.16], 0.06, '#cfd8dc');
@@ -770,6 +791,7 @@ export const ITEM_ART: Record<ItemKind, Draw> = {
   coffee: drawCoffee,
   choco: drawChoco,
   foosball: drawFoosball,
+  lights: drawLights,
   roach: drawRoach,
   rabbit: drawRabbit,
   bomb: drawBomb,

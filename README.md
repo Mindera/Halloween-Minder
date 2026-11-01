@@ -76,6 +76,7 @@ Items come out of a shuffled bag, so you see every item before any repeats.
 | ☕ Coffee | Rapid-fire eyeballs |
 | 🍫 Chocolate | The Minder spits fireballs: they burn through every monster in a line and smash crates in one hit |
 | ⚽ Foosball (*bola de matraquilhos*) | For 5 seconds FIRE kicks foosballs that ricochet off the walls, hop over them (or bounce along the top) and knock out every monster they touch |
+| 💡 Light Switch | Lights out! For 5 seconds the screen goes black and only eyes glow in the dark |
 | 🪳 Cockroach | "Ups, we found a bug!" The screen glitches and the controls get scrambled (they reshuffle every few seconds) |
 | 🐇 White Rabbit | It hops away from you. Catch it and the maze turns into the Matrix: green code, digital rain |
 | 🎃 Pumpkin Bombs | +2 bombs |

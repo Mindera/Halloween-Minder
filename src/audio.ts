@@ -5,6 +5,7 @@ export type Sfx =
   | 'shoot'
   | 'flame'
   | 'kick'
+  | 'switch'
   | 'tok'
   | 'pellet'
   | 'hit'
@@ -230,6 +231,12 @@ export class SoundBoard {
         this.tone(1500, 0.04, 'square', 0.12, 900);
         this.noise(0.06, 0.25, 3200, 0, 3);
         this.tone(220, 0.08, 'triangle', 0.15, 120);
+        break;
+      case 'switch':
+        // Click! (and the hum of the lights going off)
+        this.tone(2400, 0.015, 'square', 0.12);
+        this.noise(0.03, 0.2, 4000, 0, 4);
+        this.tone(120, 0.25, 'sine', 0.1, 50, 0.03);
         break;
       case 'tok':
         this.tone(1250, 0.03, 'square', 0.05, 800);

@@ -350,6 +350,7 @@ export const en = {
     coffee: { name: 'Coffee', toast: 'COFFEE! Rapid-fire eyeballs!', help: 'Rapid-fire eyeballs!' },
     choco: { name: 'Chocolate', toast: 'CHOCOLATE! So hot... you spit FIRE!', help: 'You spit fireballs that burn through monsters and smash crates.' },
     foosball: { name: 'Foosball', toast: 'FOOSBALL! Kick it and watch it bounce!', help: 'For 5 seconds you kick foosballs that ricochet off the walls, hop over them and knock out every monster they touch.' },
+    lights: { name: 'Light Switch', toast: 'LIGHTS OUT! Who turned off the lights?!', help: 'The lights go out for 5 seconds. Only the eyes glow in the dark...' },
     roach: { name: 'Cockroach', toast: 'Ups, we found a bug! The controls are glitching!', help: 'Ups, we found a bug! The game glitches and the controls get mixed up.' },
     rabbit: { name: 'White Rabbit', toast: 'You caught the White Rabbit! Welcome to the Matrix...', help: 'It runs away! Catch it to enter the Matrix.' },
     bomb: { name: 'Pumpkin Bombs', toast: 'PUMPKIN BOMBS! +2 bombs. Drop one with the BOMB button!', help: '+2 pumpkin bombs. Drop them with BOMB to blow up crates and monsters.' },
