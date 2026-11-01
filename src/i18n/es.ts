@@ -341,6 +341,7 @@ export const es: Dict = {
     coffee: { name: 'Café', toast: '¡CAFÉ! ¡Ráfaga de ojos!', help: '¡Ráfaga de ojos!' },
     choco: { name: 'Chocolate', toast: '¡CHOCOLATE! Qué calor... ¡escupes FUEGO!', help: 'Escupes bolas de fuego que atraviesan a los monstruos y rompen las cajas.' },
     foosball: { name: 'Bola de futbolín', toast: '¡BOLA DE FUTBOLÍN! ¡Chútala y mira cómo rebota!', help: 'Durante 5 segundos chutas bolas de futbolín que rebotan en las paredes, saltan por encima y tumban a todos los monstruos que tocan.' },
+    lights: { name: 'Interruptor', toast: '¡APAGÓN! ¿Quién apagó la luz?', help: 'La luz se apaga durante 5 segundos. Solo brillan los ojos en la oscuridad...' },
     roach: { name: 'Cucaracha', toast: '¡Uy, encontramos un bug! ¡Los controles fallan!', help: '¡Uy, encontramos un bug! El juego falla y los controles se mezclan.' },
     rabbit: { name: 'Conejo Blanco', toast: '¡Atrapaste al Conejo Blanco! Entrando en Matrix...', help: '¡Se escapa! Atrápalo para entrar en Matrix.' },
     bomb: { name: 'Bombas calabaza', toast: '¡BOMBAS CALABAZA! +2 bombas. ¡Suelta una con el botón BOMBA!', help: '+2 bombas calabaza. Suéltalas con BOMBA para hacer explotar cajas y monstruos.' },

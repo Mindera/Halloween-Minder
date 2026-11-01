@@ -1,4 +1,4 @@
-import { BOSS_PHOTO, ENEMIES } from './config';
+import { BOSS_PHOTO, ENEMIES, ITEMS } from './config';
 import { WARN_TIME, type Enemy, type Game, type Player } from './game';
 import { CRATE, DIRS, WALL, type Maze } from './maze';
 import { MONSTER_ART, SpriteBank, bake, drawBomb, drawEyeball, drawFootball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
@@ -487,6 +487,7 @@ export class Renderer {
     for (const p of game.players) this.drawPlayer(game, p);
     this.drawPets(game);
     this.drawParticles(game);
+    if (game.has('lights')) this.drawDark(game);
     this.drawWarnings(game, 'sign');
     this.drawPopups(game);
     if (game.squid) this.drawDollGaze(game);
@@ -1578,6 +1579,45 @@ export class Renderer {
     ctx.beginPath();
     ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
     ctx.stroke();
+  }
+
+  /**
+   * Lights out (the light switch): everything goes black for a few seconds, flickering off and back on, and only
+   * eyes glow in the dark: the monsters' (blinking now and then) and the minders'.
+   */
+  private drawDark(game: Game) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    const left = game.effects.get('lights') ?? 0;
+    const since = (ITEMS.lights.time ?? 5) - left;
+    const flicker = since < 0.4 || left < 0.7;
+    if (flicker && Math.floor(game.time * 18) % 3 === 0) return;
+    ctx.fillStyle = 'rgba(0,0,0,0.97)';
+    ctx.fillRect(-this.ox - 40, -this.oy - 40, this.cw + 80, this.ch + 80);
+    ctx.save();
+    ctx.shadowBlur = T * 0.35;
+    for (const e of game.enemies) {
+      if (e.rising > 0 || Math.sin(game.time * 2.3 + e.id * 1.7) > 0.96) continue;
+      const art = MONSTER_ART[e.kind];
+      const k = art.scale * T;
+      ctx.fillStyle = ctx.shadowColor = e.kind === 'cousin' ? '#ff4081' : '#ffea00';
+      for (const eye of art.eyes) {
+        ctx.beginPath();
+        ctx.arc(e.x * T + eye.x * k * e.face, e.y * T + eye.y * k, Math.max(1.5, eye.r * k * 0.55), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    for (const p of game.players) {
+      const art = this.minders[p.id] ?? this.minders[0];
+      if (!p.alive || !art?.img.naturalWidth) continue;
+      const h = T * 1.12;
+      const w = (h * art.img.naturalWidth) / art.img.naturalHeight;
+      ctx.fillStyle = ctx.shadowColor = '#e0f7fa';
+      ctx.beginPath();
+      ctx.arc(p.x * T + (art.eye[0] - 0.5) * w * (p.face === 3 ? -1 : 1), p.y * T + (art.eye[1] - 0.5) * h, T * 0.09, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   /** Foosballs: the higher a ball hops, the further its shadow and the bigger it looks. */

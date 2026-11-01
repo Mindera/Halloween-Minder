@@ -4,7 +4,7 @@ import type { Msg } from '../i18n';
 import type { GameEvent } from '../progress';
 
 /** Bumped whenever the messages change, so two different builds refuse to play together. */
-export const VERSION = 4;
+export const VERSION = 5;
 
 /** Reliable, ordered messages (JSON on the 'ctl' channel). */
 export type Ctl =

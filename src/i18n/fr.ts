@@ -341,6 +341,7 @@ export const fr: Dict = {
     coffee: { name: 'Café', toast: "CAFÉ ! Rafale d'yeux !", help: "Rafale d'yeux !" },
     choco: { name: 'Chocolat', toast: 'CHOCOLAT ! Ça chauffe... tu craches du FEU !', help: 'Tu craches des boules de feu qui traversent les monstres et cassent les caisses.' },
     foosball: { name: 'Balle de baby-foot', toast: 'BALLE DE BABY-FOOT ! Tire et regarde-la rebondir !', help: 'Pendant 5 secondes, tu tires des balles de baby-foot qui ricochent sur les murs, sautent par-dessus et assomment tous les monstres qu’elles touchent.' },
+    lights: { name: 'Interrupteur', toast: 'PANNE DE COURANT ! Qui a éteint la lumière ?!', help: 'La lumière s’éteint pendant 5 secondes. Seuls les yeux brillent dans le noir...' },
     roach: { name: 'Cafard', toast: "Oups, on a trouvé un bug ! Les commandes font n'importe quoi !", help: "Oups, on a trouvé un bug ! Le jeu beugue et les commandes s'emmêlent." },
     rabbit: { name: 'Lapin Blanc', toast: 'Tu as attrapé le Lapin Blanc ! Bienvenue dans la Matrix...', help: "Il s'enfuit ! Attrape-le pour entrer dans la Matrix." },
     bomb: { name: 'Bombes citrouilles', toast: 'BOMBES CITROUILLES ! +2 bombes. Poses-en une avec le bouton BOMBE !', help: '+2 bombes citrouilles. Pose-les avec BOMBE pour faire exploser les caisses et les monstres.' },

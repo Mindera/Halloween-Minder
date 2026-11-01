@@ -342,6 +342,7 @@ export const ptPT: Dict = {
     coffee: { name: 'Café', toast: 'CAFÉ! Olhos em rajada!', help: 'Disparas olhos em rajada!' },
     choco: { name: 'Chocolate', toast: 'CHOCOLATE! Tão quente... cospes FOGO!', help: 'Cospes bolas de fogo que atravessam os monstros e partem as caixas.' },
     foosball: { name: 'Bola de matraquilhos', toast: 'BOLA DE MATRAQUILHOS! Chuta e vê-a saltar!', help: 'Durante 5 segundos chutas bolas de matraquilhos que fazem ricochete nas paredes, saltam por cima delas e despacham todos os monstros em que tocam.' },
+    lights: { name: 'Interruptor', toast: 'APAGÃO! Quem apagou a luz?!', help: 'A luz apaga-se durante 5 segundos. Só os olhos brilham no escuro...' },
     roach: { name: 'Barata', toast: 'Ups, encontrámos um bug! Os comandos estão malucos!', help: 'Ups, encontrámos um bug! O jogo encrava e os comandos ficam trocados.' },
     rabbit: { name: 'Coelho Branco', toast: 'Apanhaste o Coelho Branco! Bem-vindo à Matrix...', help: 'Ele foge! Apanha-o para entrares na Matrix.' },
     bomb: { name: 'Bombas de Abóbora', toast: 'BOMBAS DE ABÓBORA! +2 bombas. Larga uma com o botão BOMBA!', help: '+2 bombas de abóbora. Larga-as com BOMBA para rebentar caixas e monstros.' },

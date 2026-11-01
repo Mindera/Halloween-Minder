@@ -341,6 +341,7 @@ export const vi: Dict = {
     coffee: { name: 'Cà phê', toast: 'CÀ PHÊ! Bắn nhãn cầu liên thanh!', help: 'Bắn nhãn cầu liên thanh!' },
     choco: { name: 'Sô-cô-la', toast: 'SÔ-CÔ-LA! Nóng quá... bạn phun LỬA!', help: 'Bạn phun cầu lửa xuyên qua quái vật và phá vỡ thùng gỗ.' },
     foosball: { name: 'Bóng bi lắc', toast: 'BÓNG BI LẮC! Sút đi và xem nó nảy!', help: 'Trong 5 giây, bạn sút những quả bóng bi lắc nảy bật khỏi tường, nhảy qua tường và hạ gục mọi quái vật chúng chạm vào.' },
+    lights: { name: 'Công tắc đèn', toast: 'CÚP ĐIỆN! Ai tắt đèn thế?!', help: 'Đèn tắt trong 5 giây. Chỉ có những đôi mắt sáng lên trong bóng tối...' },
     roach: { name: 'Con gián', toast: 'Úi, có bug rồi! Nút điều khiển bị loạn!', help: 'Úi, có bug rồi! Trò chơi bị lỗi và nút điều khiển bị đảo lộn.' },
     rabbit: { name: 'Thỏ Trắng', toast: 'Bạn đã bắt được Thỏ Trắng! Chào mừng đến với Matrix...', help: 'Nó chạy trốn đó! Bắt được nó để vào Matrix.' },
     bomb: { name: 'Bom bí ngô', toast: 'BOM BÍ NGÔ! +2 bom. Thả bom bằng nút BOM!', help: '+2 bom bí ngô. Thả bằng nút BOM để phá thùng gỗ và hạ quái vật.' },

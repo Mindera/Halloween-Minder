@@ -341,6 +341,7 @@ export const ro: Dict = {
     coffee: { name: 'Cafea', toast: 'CAFEA! Ochi în rafală!', help: 'Ochi în rafală!' },
     choco: { name: 'Ciocolată', toast: 'CIOCOLATĂ! Ce fierbinte... scuipi FOC!', help: 'Scuipi mingi de foc care trec prin monștri și sparg lăzile.' },
     foosball: { name: 'Minge de fotbal de masă', toast: 'MINGE DE FOTBAL DE MASĂ! Șutează și uite cum sare!', help: 'Timp de 5 secunde șutezi mingi care ricoșează din pereți, sar peste ei și pocnesc orice monstru ating.' },
+    lights: { name: 'Întrerupător', toast: 'PANĂ DE CURENT! Cine a stins lumina?!', help: 'Lumina se stinge timp de 5 secunde. Doar ochii strălucesc în întuneric...' },
     roach: { name: 'Gândac', toast: 'Ups, am găsit un bug! Comenzile o iau razna!', help: 'Ups, am găsit un bug! Jocul se strică și comenzile se încurcă.' },
     rabbit: { name: 'Iepurele Alb', toast: 'L-ai prins pe Iepurele Alb! Bun venit în Matrix...', help: 'Fuge de tine! Prinde-l ca să intri în Matrix.' },
     bomb: { name: 'Bombe-dovleac', toast: 'BOMBE-DOVLEAC! +2 bombe. Lasă una cu butonul BOMBĂ!', help: '+2 bombe-dovleac. Lasă-le cu BOMBĂ ca să spargi lăzi și să pocnești monștri.' },

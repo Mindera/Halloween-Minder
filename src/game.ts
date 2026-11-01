@@ -793,8 +793,10 @@ export class Game {
 
     for (const [k, t] of this.effects) {
       const nt = t - dt;
-      if (nt <= 0) this.effects.delete(k);
-      else this.effects.set(k, nt);
+      if (nt <= 0) {
+        this.effects.delete(k);
+        if (k === 'lights') this.sfx('switch'); // ...and the lights come back on
+      } else this.effects.set(k, nt);
     }
     if (this.has('roach')) {
       this.scrambleTimer -= dt;
@@ -1782,7 +1784,7 @@ export class Game {
     this.burst(x, y, ['#fff59d', '#ffffff', '#ffd54f'], 14, 0.08, 'star');
     this.buzz('medium');
     const sounds: Record<ItemKind, Sfx> = {
-      cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp', computer: 'bsod', coffee: 'slurp', choco: 'nom', foosball: 'kick',
+      cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp', computer: 'bsod', coffee: 'slurp', choco: 'nom', foosball: 'kick', lights: 'switch',
       roach: 'glitch', rabbit: 'matrix', bomb: 'fuse', candy: 'candy', cake: 'candy',
     };
     this.sfx(sounds[kind]);
