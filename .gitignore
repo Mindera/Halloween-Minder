@@ -18,6 +18,3 @@ android/capacitor-cordova-android-plugins/build/
 *.p12
 *.mobileprovision
 .claude/launch.json
-
-# /brag working output
-brag-output/

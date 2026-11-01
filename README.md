@@ -1,9 +1,9 @@
 # Halloween Minder 🎃👁️
 
 
-**[▶️ Watch the launch video](docs/launch.mp4)**
+<a href="docs/launch.mp4"><img src="docs/launch.gif" width="300" alt="Launch video: the game, tablet co-op, stickers, the secret climb and high scores" /></a>
 
-*24s launch video (normal game, tablet co-op, stickers, the secret climb and high scores), made with [/brag](https://github.com/latent-spaces/brag).*
+*The game, tablet co-op, stickers, the secret climb and high scores. [Watch with sound](docs/launch.mp4).*
 **Happy Halloween. With love, Mindera.**
 
 A spooky, silly maze shooter for kids. A homage to retro games. You play as a Minder, collect the IT bits, and shoot **eyeballs** at zombies, witches, pumpkins, skeletons and their friends.
