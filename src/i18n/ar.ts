@@ -18,6 +18,9 @@ export const ar: Dict = {
     language: 'اللغة',
     stickers: 'الملصقات',
     settings: 'الإعدادات',
+    /** After the 1st and 2nd throw of the title Minder (the 3rd opens the secret). */
+    pullMore: 'استمرّ لتحصل على مفاجأة! 🤫',
+    pullOnce: 'مرّة أخرى!',
   },
   select: {
     title: 'اختر Minder الخاص بك',

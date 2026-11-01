@@ -18,6 +18,9 @@ export const vi: Dict = {
     language: 'Ngôn ngữ',
     stickers: 'Hình dán',
     settings: 'Cài đặt',
+    /** After the 1st and 2nd throw of the title Minder (the 3rd opens the secret). */
+    pullMore: 'Tiếp tục để nhận bất ngờ! 🤫',
+    pullOnce: 'Thêm một lần nữa!',
   },
   select: {
     title: 'Chọn Minder của bạn',

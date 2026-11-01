@@ -112,6 +112,8 @@ class App {
   private lastBoing = 0;
   /** Title Minder throws (no need to wait for it to settle in between): after the third it hurries home and the secret climb opens. */
   private throws = 0;
+  private pullHintEl?: HTMLElement;
+  private pullHintTimer = 0;
   private climb = new Climb();
   private fling = new Flingable($<HTMLImageElement>('title-minder'), {
     onBounce: (speed) => {
@@ -123,6 +125,7 @@ class App {
     },
     onThrow: () => {
       if (++this.throws >= 3) this.fling.hurry();
+      this.pullHint(this.throws);
     },
     onHome: () => this.openSecret(),
   });
@@ -201,6 +204,7 @@ class App {
       this.fling.reset();
       this.climb.stop();
       this.throws = 0;
+      this.pullHint(0);
     }
     for (const s of SCREENS) $(s).hidden = s !== id;
   }
@@ -290,10 +294,33 @@ class App {
     this.loadMinderImages();
   }
 
-  /** Third throw in a row and the title Minder is back home: off it climbs, as the selected Minder. */
+  /** After the 1st and 2nd throw, a bubble over the Minder's spot hints that the 3rd does something (0 hides it). */
+  private pullHint(n: number) {
+    window.clearTimeout(this.pullHintTimer);
+    this.pullHintEl?.remove();
+    this.pullHintEl = undefined;
+    const r = $('title-minder').getBoundingClientRect();
+    if (n < 1 || n > 2 || !r.width) return;
+    const b = document.createElement('div');
+    b.className = 'climb-bubble hint';
+    const text = document.createElement('em');
+    text.textContent = t(n === 1 ? 'title.pullMore' : 'title.pullOnce');
+    b.append(text);
+    b.style.left = `${r.left + r.width / 2}px`;
+    b.style.top = `${r.top - 6}px`;
+    document.body.appendChild(b);
+    this.pullHintEl = b;
+    this.pullHintTimer = window.setTimeout(() => {
+      b.classList.add('out');
+      window.setTimeout(() => b.remove(), 400);
+    }, 2600);
+  }
+
+  /** Third throw and the title Minder is back home: off it climbs, as the selected Minder. */
   private openSecret() {
     if (this.throws < 3 || this.state !== 'menu' || $('screen-title').hidden) return;
     this.throws = 0;
+    this.pullHint(0);
     const m = this.minders[0];
     // Finding it is worth a sticker (announced inside the game, which covers the toasts).
     const { stickers } = record({ type: 'secret' }, true);

@@ -788,6 +788,16 @@ h3 {
 .climb-bubble.out {
   opacity: 0;
 }
+/* "Keep going for a surprise!" after the first throws of the title Minder. */
+.climb-bubble.hint {
+  max-width: min(260px, 80vw);
+  padding: 8px 14px;
+  text-align: center;
+}
+.climb-bubble.hint em {
+  color: #ffc700;
+  font-size: 15px;
+}
 @keyframes bubble-pop {
   from {
     opacity: 0;

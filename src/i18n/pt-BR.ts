@@ -19,6 +19,9 @@ export const ptBR: Dict = {
     language: 'Idioma',
     stickers: 'Figurinhas',
     settings: 'Configurações',
+    /** After the 1st and 2nd throw of the title Minder (the 3rd opens the secret). */
+    pullMore: 'Continue para uma surpresa! 🤫',
+    pullOnce: 'Só mais uma!',
   },
   select: {
     title: 'Escolha seu Minder',

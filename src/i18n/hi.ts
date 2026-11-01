@@ -18,6 +18,9 @@ export const hi: Dict = {
     language: 'भाषा',
     stickers: 'स्टिकर',
     settings: 'सेटिंग्स',
+    /** After the 1st and 2nd throw of the title Minder (the 3rd opens the secret). */
+    pullMore: 'सरप्राइज़ के लिए खींचते रहो! 🤫',
+    pullOnce: 'बस एक बार और!',
   },
   select: {
     title: 'अपना Minder चुनो',

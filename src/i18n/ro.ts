@@ -18,6 +18,9 @@ export const ro: Dict = {
     language: 'Limbă',
     stickers: 'Abțibilduri',
     settings: 'Setări',
+    /** After the 1st and 2nd throw of the title Minder (the 3rd opens the secret). */
+    pullMore: 'Continuă pentru o surpriză! 🤫',
+    pullOnce: 'Încă una!',
   },
   select: {
     title: 'Alege-ți Minderul',

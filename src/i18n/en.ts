@@ -22,6 +22,9 @@ export const en = {
     language: 'Language',
     stickers: 'Stickers',
     settings: 'Settings',
+    /** After the 1st and 2nd throw of the title Minder (the 3rd opens the secret). */
+    pullMore: 'Keep going for a surprise! 🤫',
+    pullOnce: 'One more!',
   },
   select: {
     title: 'Pick your Minder',

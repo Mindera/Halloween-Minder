@@ -18,6 +18,9 @@ export const fr: Dict = {
     language: 'Langue',
     stickers: 'Autocollants',
     settings: 'Réglages',
+    /** After the 1st and 2nd throw of the title Minder (the 3rd opens the secret). */
+    pullMore: 'Continue pour une surprise ! 🤫',
+    pullOnce: 'Encore une !',
   },
   select: {
     title: 'Choisis ton Minder',
