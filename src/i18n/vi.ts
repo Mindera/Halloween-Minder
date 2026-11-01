@@ -109,6 +109,9 @@ export const vi: Dict = {
   },
   language: {
     title: 'Ngôn ngữ',
+    /** Follow the browser's language (the default). */
+    auto: 'Tự động (ngôn ngữ trình duyệt)',
+    autoShort: 'Tự động',
   },
   settings: {
     title: 'Cài đặt',

@@ -28,7 +28,7 @@ Settings, costumes, stats, stickers and the daily ghost are stored on the device
 
 ## Languages
 
-English, Português (Portugal), Português (Brasil), Español, Français, Română, العربية (Arabic, right-to-left), हिन्दी (Hindi) and Tiếng Việt. The game picks the device language the first time and remembers a choice made under ⚙️ Settings → 🌐 Language.
+English, Português (Portugal), Português (Brasil), Español, Français, Română, العربية (Arabic, right-to-left), हिन्दी (Hindi) and Tiếng Việt. By default the game follows the browser's (or phone's) language: the first of its preferred languages that the game speaks, and English otherwise. A language picked under ⚙️ Settings → 🌐 Language is remembered, and **Automatic** at the top of that list goes back to following the browser.
 
 - Strings live in `src/i18n/`: `en.ts` is the source and defines the `Dict` type, so a translation that misses a key fails the build. Other languages are loaded on demand as separate chunks.
 - `{name}` placeholders are filled at runtime; strings shown with `data-i18n-html` may use `<b>` and `<br>`.

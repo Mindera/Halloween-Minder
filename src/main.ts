@@ -18,7 +18,7 @@ import { Climb, climbRecord } from './climb';
 import { buzz } from './feedback';
 import { Flingable } from './fling';
 import { Game } from './game';
-import { LANGS, detectLang, getLang, say, setLang, t, ta, type Lang } from './i18n';
+import { LANGS, browserLang, detectLang, forgetLang, getLang, savedLang, say, setLang, t, ta, type Lang } from './i18n';
 import { Input } from './input';
 import { pickDims } from './maze';
 import { PairScreen } from './net/pair';
@@ -436,7 +436,8 @@ class App {
     lang.type = 'button';
     lang.className = 'setting lang-setting';
     lang.innerHTML = `<span><span>🌐 ${t('language.title')}</span><small></small></span><b aria-hidden="true">›</b>`;
-    lang.querySelector('small')!.textContent = LANGS.find((l) => l.id === getLang())?.name ?? 'English';
+    const langName = LANGS.find((l) => l.id === getLang())?.name ?? 'English';
+    lang.querySelector('small')!.textContent = savedLang() ? langName : `${t('language.autoShort')} · ${langName}`;
     lang.addEventListener('click', () => {
       audio.play('click');
       this.buildLanguages();
@@ -512,12 +513,25 @@ class App {
   private buildLanguages() {
     const list = $('lang-list');
     list.innerHTML = '';
+    // First (and the default): follow the browser's language.
+    const auto = document.createElement('button');
+    auto.type = 'button';
+    auto.className = 'auto';
+    auto.innerHTML = '<span></span><small></small>';
+    auto.querySelector('span')!.textContent = `🌐 ${t('language.auto')}`;
+    auto.querySelector('small')!.textContent = LANGS.find((l) => l.id === browserLang())?.name ?? 'English';
+    auto.classList.toggle('selected', !savedLang());
+    auto.addEventListener('click', () => {
+      audio.play('click');
+      void this.changeLanguage(null);
+    });
+    list.appendChild(auto);
     for (const l of LANGS) {
       const b = document.createElement('button');
       b.type = 'button';
       b.lang = l.id;
       b.textContent = l.name;
-      b.classList.toggle('selected', l.id === getLang());
+      b.classList.toggle('selected', l.id === savedLang());
       b.addEventListener('click', () => {
         audio.play('click');
         void this.changeLanguage(l.id);
@@ -526,11 +540,16 @@ class App {
     }
   }
 
-  private async changeLanguage(l: Lang) {
+  /** A language from the list, or null to follow the browser's again. */
+  private async changeLanguage(l: Lang | null) {
     // Drop messages written in the old language (they would also re-flow oddly when switching to/from RTL).
     this.toastQueue = [];
     $('toast').classList.remove('show');
-    await setLang(l, true);
+    if (l) await setLang(l, true);
+    else {
+      forgetLang();
+      await setLang(browserLang());
+    }
     this.applyLanguage();
     this.openSettings(this.settingsFrom);
   }

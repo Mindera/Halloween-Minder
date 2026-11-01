@@ -114,6 +114,9 @@ export const en = {
   },
   language: {
     title: 'Language',
+    /** Follow the browser's language (the default). */
+    auto: 'Automatic (browser language)',
+    autoShort: 'Automatic',
   },
   settings: {
     title: 'Settings',
