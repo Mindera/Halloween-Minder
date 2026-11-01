@@ -37,6 +37,8 @@ export type Sfx =
   | 'fuse'
   | 'boom'
   | 'cry'
+  | 'laugh'
+  | 'giggle'
   | 'chant'
   | 'chantFast'
   | 'chantSlow'
@@ -53,7 +55,7 @@ export const CHANT_TIME = { chant: 3.8, chantFast: 2.3, chantSlow: 5.4 };
 const CHANT: [number, number][] = [[67, 1], [67, 1], [67, 1.5], [64, 1], [67, 1], [67, 1], [64, 1], [69, 1], [67, 1], [64, 2]];
 
 /** With "no scary sounds" on, these are swapped for gentle ones (or silence). */
-const GENTLE: Partial<Record<Sfx, Sfx | null>> = { boo: 'appear', boss: 'item', spawn: null, boom: 'crack', glitch: 'click', death: 'cry' };
+const GENTLE: Partial<Record<Sfx, Sfx | null>> = { boo: 'appear', boss: 'item', spawn: null, boom: 'crack', glitch: 'click', death: 'cry', laugh: 'giggle' };
 
 export class SoundBoard {
   private ctx?: AudioContext;
@@ -146,6 +148,70 @@ export class SoundBoard {
     src.connect(f).connect(g).connect(this.master);
     src.start(t, Math.random() * 0.5);
     src.stop(t + dur + 0.02);
+  }
+
+  /**
+   * A monster's evil "MWA-HA-HA-HA-HA!" (or, with no scary sounds, a little "hee-hee-hee"): a buzzy voice shaped
+   * into an "a" (or "ee") by vowel filters, each syllable starting with a breathy "h", with a spooky echo.
+   */
+  private laugh(gentle: boolean) {
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    const t = ctx.currentTime;
+    const out = ctx.createGain();
+    out.connect(this.master);
+    if (!gentle) {
+      const echo = ctx.createDelay(1);
+      echo.delayTime.value = 0.17;
+      const feedback = ctx.createGain();
+      feedback.gain.value = 0.3;
+      out.connect(echo).connect(feedback).connect(echo);
+      feedback.connect(this.master);
+    }
+    const vowel: [number, number, number][] = gentle
+      ? [[320, 5, 1], [2300, 9, 0.5]] // "ee"
+      : [[750, 5, 1], [1150, 7, 0.7], [2600, 9, 0.25]]; // "a"
+    const base = gentle ? 420 : 140;
+    let at = 0;
+    if (!gentle) {
+      // "Mwaaa..." rising and falling.
+      this.tone(base * 0.8, 0.1, 'sine', 0.18, base * 0.9, 0, out);
+      this.voice(t + 0.06, 0.34, [base * 0.85, base * 1.3, base], vowel, 0.65, out);
+      at = 0.46;
+    }
+    const n = gentle ? 4 : 5;
+    for (let i = 0; i < n; i++) {
+      const start = at + i * (gentle ? 0.13 : 0.16);
+      const f = base * (1.2 - i * (gentle ? 0.04 : 0.07));
+      this.noise(0.05, 0.1, gentle ? 3000 : 1600, start, 1.5);
+      this.voice(t + start + 0.03, gentle ? 0.09 : 0.12, [f * 1.08, f * 0.9], vowel, gentle ? 1 : 0.6, out);
+    }
+  }
+
+  /** A sung syllable: a sawtooth sliding through `pitch`, filtered through the vowel's formants [Hz, Q, level]. */
+  private voice(t0: number, dur: number, pitch: number[], formants: [number, number, number][], vol: number, dest: AudioNode) {
+    const ctx = this.ctx!;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(pitch[0], t0);
+    pitch.slice(1).forEach((f, i) => o.frequency.linearRampToValueAtTime(f, t0 + (dur * (i + 1)) / (pitch.length - 1)));
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.025);
+    g.gain.setValueAtTime(vol, t0 + dur * 0.55);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    for (const [freq, q, level] of formants) {
+      const f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = freq;
+      f.Q.value = q;
+      const fg = ctx.createGain();
+      fg.gain.value = level;
+      o.connect(f).connect(fg).connect(g);
+    }
+    g.connect(dest);
+    o.start(t0);
+    o.stop(t0 + dur + 0.02);
   }
 
   play(sound: Sfx) {
@@ -281,6 +347,12 @@ export class SoundBoard {
         break;
       case 'cry':
         [0, 0.28, 0.56].forEach((t, i) => this.tone(520 - i * 40, 0.25, 'triangle', 0.12, 380 - i * 40, t));
+        break;
+      case 'laugh':
+        this.laugh(false);
+        break;
+      case 'giggle':
+        this.laugh(true);
         break;
       case 'chant':
       case 'chantFast':

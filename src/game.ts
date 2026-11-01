@@ -256,6 +256,9 @@ const PET_LIFE = 15;
 const TURN_TIME = 0.8;
 const RED_TIME = [2, 3.4];
 const RED_GRACE = 0.3;
+/** How long the "caught" moment lasts before the game-over screen, and when the sad tune starts (after the monster's laugh). */
+const DYING_TIME = 2.6;
+const LAUGH_TIME = 1.3;
 /** The daily ghost is sampled every 0.1 s: x*20, y*20, face. */
 const GHOST_STEP = 0.1;
 
@@ -612,13 +615,17 @@ export class Game {
         this.phaseTime -= dt;
         if (this.phaseTime <= 0) this.nextLevel();
         break;
-      case 'dying':
+      case 'dying': {
+        const before = this.phaseTime;
         this.phaseTime -= dt;
+        const tune = DYING_TIME - LAUGH_TIME;
+        if (before > tune && this.phaseTime <= tune) this.sfx('death');
         if (this.phaseTime <= 0) {
           this.phase = 'over';
           this.cb.gameOver(this.deathReason);
         }
         break;
+      }
       default:
         break;
     }
@@ -1352,6 +1359,7 @@ export class Game {
       p.dir = -1;
       this.emote(p, 'cry');
       this.sfx('cry');
+      this.sfx('laugh');
       this.buzz('error');
       this.popup(p.x, p.y - 0.7, msg('pop.out', { n: p.id + 1 }), '#ff8a80', 0.4);
       this.cb.toast(msg('toast.playerOut', { n: p.id + 1, other: 2 - p.id }), '#ff8a80');
@@ -1664,13 +1672,14 @@ export class Game {
 
   private die(reason: Msg, killer: EnemyKind | null) {
     this.phase = 'dying';
-    this.phaseTime = 2.6;
+    this.phaseTime = DYING_TIME;
     this.deathReason = reason;
     this.killer = killer;
     this.effects.clear();
     for (const p of this.players) this.emote(p, 'cry');
     this.fx({ t: 'music' });
-    this.sfx('death');
+    // The monsters laugh at you first; the sad tune follows (see 'dying' in update).
+    this.sfx('laugh');
     this.buzz('error');
   }
 
