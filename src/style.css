@@ -618,8 +618,9 @@ h3 {
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
 }
+/* Invisible but still touchable while its copy flies about, so it can be grabbed again at its spot. */
 #title-minder.flung {
-  visibility: hidden;
+  opacity: 0;
   animation: none;
 }
 .minder-floater {

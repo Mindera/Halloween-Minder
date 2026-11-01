@@ -110,7 +110,7 @@ class App {
   private net: NetSession | null = null;
   private pair = new PairScreen((text, color) => this.toast(text, color), devNet === 'loop');
   private lastBoing = 0;
-  /** Title Minder throws in a row: the third one, once it lands back home, opens the secret climb. */
+  /** Title Minder throws (no need to wait for it to settle in between): after the third it hurries home and the secret climb opens. */
   private throws = 0;
   private climb = new Climb();
   private fling = new Flingable($<HTMLImageElement>('title-minder'), {
@@ -121,7 +121,9 @@ class App {
       audio.play('boing');
       buzz(speed > 1500 ? 'medium' : 'light');
     },
-    onThrow: () => this.throws++,
+    onThrow: () => {
+      if (++this.throws >= 3) this.fling.hurry();
+    },
     onHome: () => this.openSecret(),
   });
 

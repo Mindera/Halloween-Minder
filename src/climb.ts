@@ -1,5 +1,6 @@
 /**
- * 🤫 The title screen's secret. Throw the Minder three times and, as it springs home after the third,
+ * 🤫 The title screen's secret. Throw the Minder three times (pull, let go, pull, let go... it can be grabbed again at
+ * its spot while it is still flying) and, as it springs home after the third,
  * a plank appears under its feet and it starts bouncing up into the night sky:
  *
  * - Steer left and right (arrows / A-D, or hold a finger or the mouse to either side); it bounces on its own.

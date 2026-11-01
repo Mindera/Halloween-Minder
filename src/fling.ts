@@ -36,6 +36,8 @@ export class Flingable {
   private lastT = 0;
   private frame = 0;
   private prev = 0;
+  /** Coming straight home without wobbling (see `hurry`). */
+  private hurried = false;
 
   constructor(
     private img: HTMLImageElement,
@@ -45,8 +47,14 @@ export class Flingable {
     img.addEventListener('pointerdown', (e) => this.grab(e));
   }
 
+  /** Bring it home quickly, without wobbling about (e.g. once a throw has unlocked something). */
+  hurry() {
+    this.hurried = true;
+  }
+
   /** Drop it back home immediately (e.g. when leaving the title screen). */
   reset() {
+    this.hurried = false;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     this.pointer = null;
@@ -63,6 +71,14 @@ export class Flingable {
 
   private grab(e: PointerEvent) {
     e.preventDefault();
+    if (this.floater && e.currentTarget === this.img) {
+      // Grabbed at its spot while it is still flying about: it jumps straight back under the finger,
+      // so pull, let go, pull, let go... works without waiting for it to settle.
+      const h = this.home();
+      this.x = h.x;
+      this.y = h.y;
+      this.vx = this.vy = this.spin = 0;
+    }
     if (!this.floater) {
       // Fly a copy in a fixed layer so it can leave the panel; the original keeps its place in the layout.
       const h = this.home();
@@ -157,9 +173,12 @@ export class Flingable {
     const h = this.home();
     const sub = 4;
     const d = dt / sub;
+    // Hurried: a stiffer, critically damped spring, so it comes straight home.
+    const k = this.hurried ? SPRING * 2.5 : SPRING;
+    const damping = this.hurried ? 2 * Math.sqrt(k) : DAMPING;
     for (let i = 0; i < sub; i++) {
-      this.vx += (-SPRING * (this.x - h.x) - DAMPING * this.vx) * d;
-      this.vy += (-SPRING * (this.y - h.y) - DAMPING * this.vy) * d;
+      this.vx += (-k * (this.x - h.x) - damping * this.vx) * d;
+      this.vy += (-k * (this.y - h.y) - damping * this.vy) * d;
       this.x += this.vx * d;
       this.y += this.vy * d;
       // Bounce off the screen edges.
@@ -188,7 +207,7 @@ export class Flingable {
       }
     }
     // Spin settles back upright.
-    this.spin += (-this.angle * 30 - this.spin * 4) * dt;
+    this.spin += this.hurried ? (-this.angle * 120 - this.spin * 22) * dt : (-this.angle * 30 - this.spin * 4) * dt;
     this.angle += this.spin * dt;
     this.squash = Math.max(0, this.squash - dt * 5);
   }
@@ -196,7 +215,8 @@ export class Flingable {
   private settled() {
     if (this.pointer !== null) return false;
     const h = this.home();
-    return Math.hypot(this.x - h.x, this.y - h.y) < 1 && Math.hypot(this.vx, this.vy) < 12 && Math.abs(this.angle) < 1 && Math.abs(this.spin) < 8;
+    const near = this.hurried ? 3 : 1;
+    return Math.hypot(this.x - h.x, this.y - h.y) < near && Math.hypot(this.vx, this.vy) < 12 * near && Math.abs(this.angle) < near && Math.abs(this.spin) < 8 * near;
   }
 
   private draw() {
