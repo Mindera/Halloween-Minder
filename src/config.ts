@@ -99,12 +99,14 @@ export const BOSS_EVERY = BOSS_EVERY_LEVELS;
 /** Optional photo for Palos' cousin, e.g. 'boss/palos-cousin.png' in public/. Empty = cartoon drawing. */
 export const BOSS_PHOTO = '';
 
-export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'choco' | 'roach' | 'rabbit' | 'bomb' | 'candy' | 'cake';
+export type ItemKind = 'cricket' | 'spice' | 'pig' | 'eclair' | 'beer' | 'computer' | 'coffee' | 'choco' | 'foosball' | 'roach' | 'rabbit' | 'bomb' | 'candy' | 'cake';
 
 export interface ItemDef {
   weight: number;
   /** Instant items give points only and have no timed effect. */
   instant?: boolean;
+  /** How long its effect lasts, in seconds (EFFECT_TIME if not set). */
+  time?: number;
 }
 
 /** Weights are counts in a shuffled bag, so every item shows up before any repeats. */
@@ -117,6 +119,7 @@ export const ITEMS: Record<ItemKind, ItemDef> = {
   computer: { weight: 2 },
   coffee: { weight: 3 },
   choco: { weight: 3 },
+  foosball: { weight: 3, time: 5 },
   roach: { weight: 2 },
   rabbit: { weight: 2 },
   bomb: { weight: 2, instant: true },

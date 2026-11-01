@@ -1,7 +1,7 @@
 import { BOSS_PHOTO, ENEMIES } from './config';
 import { WARN_TIME, type Enemy, type Game, type Player } from './game';
 import { CRATE, DIRS, WALL, type Maze } from './maze';
-import { MONSTER_ART, SpriteBank, bake, drawBomb, drawEyeball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
+import { MONSTER_ART, SpriteBank, bake, drawBomb, drawEyeball, drawFootball, drawGooglyEye, drawTombstone, type Sprite } from './sprites';
 import { THEMES, shape, type ThemeArt } from './themes';
 import { isRtl, t as tr, uiFont } from './i18n';
 import { outfit, settings } from './progress';
@@ -481,6 +481,7 @@ export class Renderer {
       }
       drawEyeball(ctx, e.x * T, e.y * T, T * 0.21, d.x, d.y, this.minders[e.owner]?.iris ?? '#3a7bd5', e.spin);
     }
+    this.drawBalls(game);
     this.drawCricketWaves(game);
     this.drawGhostRunner(game);
     for (const p of game.players) this.drawPlayer(game, p);
@@ -1577,6 +1578,25 @@ export class Renderer {
     ctx.beginPath();
     ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
     ctx.stroke();
+  }
+
+  /** Foosballs: the higher a ball hops, the further its shadow and the bigger it looks. */
+  private drawBalls(game: Game) {
+    const ctx = this.ctx;
+    const T = this.tile;
+    for (const b of game.balls) {
+      const x = b.x * T;
+      const y = b.y * T;
+      ctx.fillStyle = `rgba(0,0,0,${Math.max(0.12, 0.4 - b.z * 0.25)})`;
+      ctx.beginPath();
+      ctx.ellipse(x, y + T * 0.18, T * Math.max(0.08, 0.18 - b.z * 0.05), T * 0.07, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.save();
+      ctx.translate(x, y - b.z * T * 0.9);
+      if (b.life < 0.4) ctx.globalAlpha = Math.max(0, b.life / 0.4);
+      drawFootball(ctx, T * (0.2 + b.z * 0.08), b.spin);
+      ctx.restore();
+    }
   }
 
   /** A chocolate fireball with a flickering tail. */

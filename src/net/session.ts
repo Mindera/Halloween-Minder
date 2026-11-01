@@ -1,4 +1,4 @@
-import type { Emote, Enemy, Eye, Fx, Game, Pet, PetShot, Player } from '../game';
+import type { Ball, Emote, Enemy, Eye, Fx, Game, Pet, PetShot, Player } from '../game';
 import type { Msg } from '../i18n';
 import type { Input } from '../input';
 import type { GameEvent } from '../progress';
@@ -55,6 +55,7 @@ export class NetSession {
   private players = new Map<number, Player>();
   private enemies = new Map<number, Enemy>();
   private eyes = new Map<number, Eye>();
+  private ballsShown = new Map<number, Ball>();
   private shotsShown = new Map<number, PetShot>();
   private pets = new Map<number, Pet>();
   private pendingStart: [string, string] | null = null;
@@ -154,7 +155,7 @@ export class NetSession {
         this.epoch = m.epoch;
         this.cur = null;
         this.from.clear();
-        for (const map of [this.players, this.enemies, this.eyes, this.shotsShown, this.pets]) map.clear();
+        for (const map of [this.players, this.enemies, this.eyes, this.ballsShown, this.shotsShown, this.pets]) map.clear();
         if (this.pendingStart) {
           h.start(this.pendingStart);
           this.pendingStart = null;
@@ -238,12 +239,14 @@ export class NetSession {
     for (const p of g.players) this.from.set(`p${p.id}`, { x: p.x, y: p.y });
     for (const e of g.enemies) this.from.set(`e${e.id}`, { x: e.x, y: e.y });
     for (const e of g.eyes) this.from.set(`y${e.id}`, { x: e.x, y: e.y });
+    for (const b of g.balls) this.from.set(`b${b.id}`, { x: b.x, y: b.y });
     for (const p of g.petShots) this.from.set(`s${p.id}`, { x: p.x, y: p.y });
     for (const p of g.pets) this.from.set(`t${p.owner}`, { x: p.x, y: p.y });
     if (g.item) this.from.set('i', { x: g.item.x, y: g.item.y });
     prune(this.players, s.players.map((p) => p.id));
     prune(this.enemies, s.enemies.map((e) => e.id));
     prune(this.eyes, s.eyes.map((e) => e.id));
+    prune(this.ballsShown, s.balls.map((b) => b.id));
     prune(this.shotsShown, s.shots.map((e) => e.id));
     prune(this.pets, s.pets.map((p) => p.owner));
     this.cur = s;
@@ -331,6 +334,13 @@ export class NetSession {
       e.owner = se.owner;
       e.spin += dt * 12;
       return e;
+    });
+    g.balls = s.balls.map((sb) => {
+      const b = keep(this.ballsShown, sb.id, () => ({ ...sb, vx: 0, vy: 0, vz: 0, spin: 0, life: 1, bossCool: 0 }));
+      place(`b${sb.id}`, b, sb);
+      b.z = sb.z;
+      b.spin += dt * 18;
+      return b;
     });
     g.petShots = s.shots.map((ss) => {
       const p = keep(this.shotsShown, ss.id, () => ({ ...ss, vx: 0, vy: 0, life: 1 }));

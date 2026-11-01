@@ -3,6 +3,7 @@ import { audio } from './audio';
 import {
   ANNIVERSARY_LEVEL,
   DAILY_STAGES,
+  EFFECT_TIME,
   ENEMIES,
   ITEMS,
   LEVEL_TIME,
@@ -354,7 +355,9 @@ class App {
     if (!s) return;
     el.className = s.big ? 'big' : '';
     el.innerHTML = '<div class="face"></div><div class="text"><b></b><small></small></div>';
-    el.querySelector('.face')!.textContent = s.icon;
+    const face = el.querySelector('.face')!;
+    face.textContent = s.icon;
+    face.classList.toggle('flip', !!s.flip);
     el.querySelector('b')!.textContent = this.stickerMessage(s.id);
     el.querySelector('small')!.textContent = t('stickers.seeAll');
     el.hidden = false;
@@ -391,8 +394,10 @@ class App {
       const [cur, goal] = s.progress(stats);
       const tilt = ((i * 37) % 13) - 6;
       const name = !got && s.secret ? t('stickers.secretLocked') : t(`stickers.${s.id}`);
-      const sub = s.big ? `<small>${t(`stickers.${s.id}Sub`)}</small>` : got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`;
-      return `<div class="sticker${got ? '' : ' locked'}${s.big ? ' big' : ''}"><div class="face" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>${name}${sub}</div>`;
+      const sub = s.sub ? `<small class="what">${t(`stickers.${s.id}Sub`)}</small>` : '';
+      const count = got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`;
+      const face = `<div class="face${got && s.flip ? ' flip' : ''}" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>`;
+      return `<div class="sticker${got ? '' : ' locked'}${s.big ? ' big' : ''}">${face}${name}${sub}${count}</div>`;
     }).join('');
   }
 
@@ -1168,8 +1173,9 @@ class App {
       }
     }
     box.querySelectorAll<HTMLElement>('.chip').forEach((chip) => {
-      const left = g.effects.get(chip.dataset.kind as ItemKind) ?? 0;
-      (chip.querySelector('i') as HTMLElement).style.width = `${(left / 10) * 100}%`;
+      const kind = chip.dataset.kind as ItemKind;
+      const left = g.effects.get(kind) ?? 0;
+      (chip.querySelector('i') as HTMLElement).style.width = `${(left / (ITEMS[kind].time ?? EFFECT_TIME)) * 100}%`;
     });
   }
 }

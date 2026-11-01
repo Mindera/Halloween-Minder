@@ -71,6 +71,26 @@ export interface Enemy extends Mover {
   eyeHits: number;
 }
 
+/**
+ * A foosball (bola de matraquilhos): it bounces along with a height of its own. Low, it ricochets off walls;
+ * high, it sails over them, or lands on top of one and bounces along it. It knocks out every monster it touches.
+ */
+export interface Ball {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** Height above the floor, in tiles. */
+  z: number;
+  vz: number;
+  spin: number;
+  life: number;
+  owner: number;
+  /** Palos' cousin is only hit once in a while by the same ball. */
+  bossCool: number;
+}
+
 /** A monster about to come out of a spawn tile: players see the warning for WARN_TIME seconds first. */
 export interface SpawnWarning {
   /** The spawn tile. */
@@ -233,6 +253,12 @@ export interface StartOptions {
 }
 
 const PLAYER_SPEED = 5.2;
+/** Foosballs: speed (tiles/s), how long each one bounces about, how high a wall is, and gravity for the hops. */
+const BALL_SPEED = 10;
+const BALL_LIFE = 4;
+const WALL_TOP = 0.35;
+const BALL_GRAVITY = 20;
+const BALL_R = 0.18;
 /** A side turn asked for up to this far (in tiles) after passing a junction still takes it, by cutting the corner. */
 const CORNER_GRACE = 0.45;
 const EYE_SPEED = 11;
@@ -261,6 +287,8 @@ const RED_GRACE = 0.3;
 /** How long the "caught" moment lasts before the game-over screen, and when the sad tune starts (after the monster's laugh). */
 const DYING_TIME = 2.6;
 const LAUGH_TIME = 1.3;
+/** Bonks at most this many seconds apart make a streak ("×2", "×3"...): 5 in a row earns the Manita sticker. */
+const STREAK_GAP = 4;
 /** The daily ghost is sampled every 0.1 s: x*20, y*20, face. */
 const GHOST_STEP = 0.1;
 
@@ -293,6 +321,7 @@ export class Game {
   /** Monsters about to come out (they already left the queue). */
   warnings: SpawnWarning[] = [];
   eyes: Eye[] = [];
+  balls: Ball[] = [];
   bombs: Bomb[] = [];
   bombStock = START_BOMBS;
   item: Item | null = null;
@@ -347,6 +376,9 @@ export class Game {
   private hintedPellets = false;
   private hintedEnemies = false;
   private cakeGiven = false;
+  /** Monsters bonked in a row, and when the last one went. */
+  private streak = 0;
+  private lastKill = -99;
   private bag: ItemKind[] = [];
   private lastItem: ItemKind | null = null;
   private hints = new Set<string>();
@@ -478,6 +510,7 @@ export class Game {
     this.enemies = [];
     this.warnings = [];
     this.eyes = [];
+    this.balls = [];
     this.item = null;
     this.popups = [];
     this.effects.clear();
@@ -491,6 +524,7 @@ export class Game {
     this.hintedPellets = false;
     this.hintedEnemies = false;
     this.cakeGiven = false;
+    this.streak = 0;
     this.input.reset();
     this.phase = 'intro';
     this.phaseTime = 2.4;
@@ -550,6 +584,7 @@ export class Game {
     this.enemies = [];
     this.warnings = [];
     this.eyes = [];
+    this.balls = [];
     this.bombs = [];
     this.pets = [];
     this.petShots = [];
@@ -768,6 +803,7 @@ export class Game {
 
     for (const p of this.alivePlayers()) this.updatePlayer(p, this.input.pads[p.id], dt);
     this.updateEyes(dt);
+    this.updateBalls(dt);
     this.updateBombs(dt);
     this.updatePets(dt);
 
@@ -830,7 +866,9 @@ export class Game {
     p.cooldown -= dt;
     const fire = pad.consumeFire();
     const maxEyes = (this.has('coffee') ? 7 : 3) * this.players.length;
-    if (fire && p.cooldown <= 0 && this.eyes.length < maxEyes) {
+    if (fire && p.cooldown <= 0 && this.has('foosball')) {
+      if (this.balls.length < 4 * this.players.length) this.kickBall(p);
+    } else if (fire && p.cooldown <= 0 && this.eyes.length < maxEyes) {
       const d = DIRS[p.face];
       const flame = this.has('choco');
       // An eyeball fired while standing on a portal shouldn't get warped by that same portal.
@@ -1030,6 +1068,87 @@ export class Game {
       }
       return true;
     });
+  }
+
+  // ------------------------------------------------------------ foosballs
+
+  /** Kicks a foosball off at an angle (so it bounces all over the maze) in the direction the minder faces. */
+  private kickBall(p: Player) {
+    const d = DIRS[p.face];
+    const side = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.65);
+    const vx = d.x - d.y * side;
+    const vy = d.y + d.x * side;
+    const k = BALL_SPEED / Math.hypot(vx, vy);
+    this.balls.push({
+      id: this.nextId++, x: p.x + d.x * 0.3, y: p.y + d.y * 0.3, vx: vx * k, vy: vy * k,
+      z: 0.05, vz: rand(4, 5.5), spin: 0, life: BALL_LIFE, owner: p.id, bossCool: 0,
+    });
+    p.cooldown = 0.35;
+    p.recoil = 1;
+    this.sfx('kick');
+  }
+
+  /** What a ball bounces on at (x, y): the floor (0), the top of a wall, or the edge of the maze (never cleared). */
+  private surface(x: number, y: number) {
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+    if (tx < 0 || ty < 0 || tx >= this.maze.w || ty >= this.maze.h) return Infinity;
+    return isWall(this.maze, tx, ty) ? WALL_TOP : 0;
+  }
+
+  private updateBalls(dt: number) {
+    this.balls = this.balls.filter((b) => {
+      b.life -= dt;
+      b.bossCool = Math.max(0, b.bossCool - dt);
+      if (b.life <= 0) {
+        this.burst(b.x, b.y, ['#ffffff', '#cfd8dc'], 6, 0.06);
+        return false;
+      }
+      const steps = Math.ceil((BALL_SPEED * dt) / 0.1);
+      const h = dt / steps;
+      for (let s = 0; s < steps; s++) {
+        // Hop: it bounces on the floor, or on top of a wall.
+        b.vz -= BALL_GRAVITY * h;
+        b.z += b.vz * h;
+        const under = this.surface(b.x, b.y);
+        if (b.z <= under) {
+          b.z = under;
+          b.vz = rand(3.6, 5.6);
+        }
+        // Sideways: it ricochets off any wall it's too low to clear.
+        const nx = b.x + b.vx * h;
+        const ex = nx + Math.sign(b.vx) * BALL_R;
+        if (this.surface(ex, b.y) > b.z) {
+          this.ricochet(ex, b.y);
+          b.vx = -b.vx;
+        } else b.x = nx;
+        const ny = b.y + b.vy * h;
+        const ey = ny + Math.sign(b.vy) * BALL_R;
+        if (this.surface(b.x, ey) > b.z) {
+          this.ricochet(b.x, ey);
+          b.vy = -b.vy;
+        } else b.y = ny;
+        b.spin += h * 18;
+      }
+      // Knocks out every monster it touches (Palos' cousin just loses a hit point now and then).
+      for (const e of [...this.enemies]) {
+        if (e.rising > 0 || Math.hypot(e.x - b.x, e.y - b.y) > 0.65) continue;
+        if (e.kind === 'cousin') {
+          if (b.bossCool > 0) continue;
+          b.bossCool = 0.4;
+          this.hitEnemy(e, 'eye', b.owner);
+        } else this.killEnemy(e, anyOf('killWords'), 'eye', b.owner);
+      }
+      return true;
+    });
+  }
+
+  /** A ball hit the side of a wall: a crate there takes a knock. */
+  private ricochet(x: number, y: number) {
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+    if (tx >= 0 && ty >= 0 && tx < this.maze.w && ty < this.maze.h && this.maze.walls[ty * this.maze.w + tx] === CRATE) this.hitCrate(tx, ty);
+    else this.sfx('tok');
   }
 
   private hitCrate(x: number, y: number, force = false) {
@@ -1240,6 +1359,12 @@ export class Game {
     this.addScore(pts);
     this.popup(e.x, e.y - 0.3, suffix(word, ` +${pts * (this.party ? 2 : 1)}`), '#fff', 0.42);
     this.burst(e.x, e.y, SPLAT[e.kind], 16, 0.1);
+    this.streak = this.time - this.lastKill <= STREAK_GAP ? this.streak + 1 : 1;
+    this.lastKill = this.time;
+    if (this.streak >= 2) {
+      this.popup(e.x, e.y - 0.8, `×${this.streak}${this.streak >= 5 ? ' 🖐️' : ''}`, '#ffab40', 0.34 + Math.min(this.streak, 6) * 0.025);
+      this.cb.event({ type: 'streak', n: this.streak });
+    }
     this.sfx('kill');
     this.buzz('light');
     this.cb.event({ type: 'kill', kind: e.kind, by });
@@ -1657,7 +1782,7 @@ export class Game {
     this.burst(x, y, ['#fff59d', '#ffffff', '#ffd54f'], 14, 0.08, 'star');
     this.buzz('medium');
     const sounds: Record<ItemKind, Sfx> = {
-      cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp', computer: 'bsod', coffee: 'slurp', choco: 'nom',
+      cricket: 'chirp', spice: 'spice', pig: 'oink', eclair: 'nom', beer: 'burp', computer: 'bsod', coffee: 'slurp', choco: 'nom', foosball: 'kick',
       roach: 'glitch', rabbit: 'matrix', bomb: 'fuse', candy: 'candy', cake: 'candy',
     };
     this.sfx(sounds[kind]);
@@ -1678,7 +1803,7 @@ export class Game {
       this.popup(x, y - 0.3, msg('pop.plusBombs'), '#ff9100', 0.45);
       return;
     }
-    this.effects.set(kind, EFFECT_TIME);
+    this.effects.set(kind, ITEMS[kind].time ?? EFFECT_TIME);
     if (kind === 'computer') this.popup(x, y - 0.4, ':(', '#82b1ff', 0.6);
     if (kind === 'roach') {
       this.reshuffleControls();
@@ -1716,6 +1841,7 @@ export class Game {
     this.phaseTime = this.party ? 7 : 3;
     this.effects.clear();
     this.eyes = [];
+    this.balls = [];
     this.bombs = [];
     for (const p of this.alivePlayers()) this.emote(p, 'cheer');
     this.cb.event({ type: 'clear', level: this.level, timeLeft: this.timeLeft, party: this.party, coop: this.coop, squid: this.squid });

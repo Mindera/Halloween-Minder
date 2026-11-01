@@ -140,6 +140,9 @@ export const en = {
     bonk500: 'Bonked 500 monsters',
     crates100: 'Smashed 100 crates',
     bigBlast: 'Bonked 3 monsters with one bomb',
+    /** A name, the same in every language (a hand: five fingers, five in a row). */
+    manita: 'Manita',
+    manitaSub: 'Bonked 5 monsters in a row',
     rabbit5: 'Caught the White Rabbit 5 times',
     teleport50: 'Teleported 50 times',
     boss: "Beat Palos' cousin",
@@ -346,6 +349,7 @@ export const en = {
     computer: { name: 'Computer', toast: 'COMPUTER! Monsters got the Blue Screen of Death!', help: 'Blue Screen of Death! Monsters freeze — touch them to delete.' },
     coffee: { name: 'Coffee', toast: 'COFFEE! Rapid-fire eyeballs!', help: 'Rapid-fire eyeballs!' },
     choco: { name: 'Chocolate', toast: 'CHOCOLATE! So hot... you spit FIRE!', help: 'You spit fireballs that burn through monsters and smash crates.' },
+    foosball: { name: 'Foosball', toast: 'FOOSBALL! Kick it and watch it bounce!', help: 'For 5 seconds you kick foosballs that ricochet off the walls, hop over them and knock out every monster they touch.' },
     roach: { name: 'Cockroach', toast: 'Ups, we found a bug! The controls are glitching!', help: 'Ups, we found a bug! The game glitches and the controls get mixed up.' },
     rabbit: { name: 'White Rabbit', toast: 'You caught the White Rabbit! Welcome to the Matrix...', help: 'It runs away! Catch it to enter the Matrix.' },
     bomb: { name: 'Pumpkin Bombs', toast: 'PUMPKIN BOMBS! +2 bombs. Drop one with the BOMB button!', help: '+2 pumpkin bombs. Drop them with BOMB to blow up crates and monsters.' },

@@ -17,7 +17,7 @@ A spooky, silly maze shooter for kids. A homage to retro games. You play as a Mi
 ## Extras
 
 - **Costumes**: reaching levels 10, 25 and 50 in Arcade unlocks a witch hat, a party hat and a vampire cape. Every Minder can wear them, picked from the Wardrobe on the Minder picker.
-- **Sticker book** (🏅 on the title screen): 21 Halloween stickers (one of them top secret) for feats like *Smashed 100 crates*, *Beat Palos' cousin with only bombs* or *Caught the White Rabbit 5 times*, with progress counters. Finishing all 100 levels earns the big one: 🪲 *Bettleminder Bettleminder Bettleminder*. Every new sticker pops up on screen with where to see them all.
+- **Sticker book** (🏅 on the title screen): 22 Halloween stickers (one of them top secret) for feats like *Smashed 100 crates*, *Beat Palos' cousin with only bombs* or *Caught the White Rabbit 5 times*, with progress counters. Bonking 5 monsters in a row (each within 4 seconds of the last, with ×2, ×3... popping up) earns 🖐️ *Manita*, a hand like the Addams Family's. Finishing all 100 levels earns the big one: 🪲 *Bettleminder Bettleminder Bettleminder*. Every new sticker pops up on screen with where to see them all.
 - 🚪 **Trick-or-treat doors** (1–3 per level): a treat (points or a random snack) or a trick (a harmless jump-scare ghost, or reversed controls for 3 seconds).
 - 🦇 **Monster pets**: a bonked monster sometimes (10%) turns into a tiny friendly bat or ghost that follows its Minder and shoots hearts at monsters for 15 seconds.
 - 👻 **Daily ghost**: your best Daily Challenge run of the day is recorded, and next time a see-through ghost Minder replays it so you can race yourself.
@@ -56,7 +56,7 @@ English, Português (Portugal), Português (Brasil), Español, Français, Român
   - 📦 **Crates** take two eyeballs to smash. Some rooms are sealed with crates, so you have to shoot your way in to collect their bits. Push towards a crate at the side of a corridor and the Minder stops and faces it.
   - 🌀 **Portals** (from level 2) teleport the Minder, the monsters and even your eyeballs.
   - ☂️ **Umbrellas** (from level 3) pop open when a monster walks under them and hide whatever is underneath.
-- **Ultimate boss: Palos' cousin.** A perfectly normal person who arrives last on every 10th level (including level 100), takes 10 eyeballs, can't be zapped by the cricket and has a health bar. To use a real photo instead of the cartoon, put the image in `public/` and set `BOSS_PHOTO` in `src/config.ts`.
+- **Ultimate boss: Palos' cousin** (*a prima do Palos*). A perfectly normal woman who arrives last on every 10th level (including level 100), takes 10 eyeballs, can't be zapped by the cricket and has a health bar. To use a real photo instead of the cartoon, put the image in `public/` and set `BOSS_PHOTO` in `src/config.ts`.
 - 🎃 **Pumpkin bombs** explode 2 seconds after you drop them: they smash every crate and bonk every monster nearby (Palos' cousin loses 3 hit points), with chain reactions. Minders are safe. You start with 3, get +1 per level (up to 5), and the Pumpkin Bombs bonus item gives +2.
 - **Minder emotes**: your Minder jumps for joy with a "YAY!" when you clear a level, and bursts into tears with a "WAAAH!" when it's caught. On the game-over screen it is still sobbing.
 - When you die, the game-over screen shows your score and high score (top 10, stored on the device), with a **Share** button. Share uses the native share sheet on iOS/Android, Web Share on mobile browsers (with a generated score-card image), or WhatsApp / X / Facebook / LinkedIn / copy links as a fallback.
@@ -75,6 +75,7 @@ Items come out of a shuffled bag, so you see every item before any repeats.
 | 💻 Computer | Blue Screen of Death: monsters freeze, so touch them to delete them |
 | ☕ Coffee | Rapid-fire eyeballs |
 | 🍫 Chocolate | The Minder spits fireballs: they burn through every monster in a line and smash crates in one hit |
+| ⚽ Foosball (*bola de matraquilhos*) | For 5 seconds FIRE kicks foosballs that ricochet off the walls, hop over them (or bounce along the top) and knock out every monster they touch |
 | 🪳 Cockroach | "Ups, we found a bug!" The screen glitches and the controls get scrambled (they reshuffle every few seconds) |
 | 🐇 White Rabbit | It hops away from you. Catch it and the maze turns into the Matrix: green code, digital rain |
 | 🎃 Pumpkin Bombs | +2 bombs |

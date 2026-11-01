@@ -316,7 +316,7 @@ const drawVampire: Draw = (g, f) => {
   g.fill();
 };
 
-/** Palos' cousin: just a regular person. Polo shirt, khakis, glasses, phone full of holiday photos. */
+/** Palos' cousin (his prima): just a regular person. Long hair, polo shirt, khakis, glasses, phone full of holiday photos. */
 const drawCousin: Draw = (g, f) => {
   g.fillStyle = '#c8a97e';
   g.fillRect(-0.15, 0.2, 0.12, f ? 0.26 : 0.24);
@@ -339,6 +339,18 @@ const drawCousin: Draw = (g, f) => {
   rrect(g, 0.2, f ? -0.2 : -0.16, 0.12, 0.16, 0.02);
   g.fillStyle = '#80deea';
   g.fillRect(0.215, f ? -0.185 : -0.145, 0.09, 0.12);
+  // Long hair, behind her head and down over her shoulders.
+  g.fillStyle = '#6d4c41';
+  g.beginPath();
+  g.moveTo(-0.23, -0.3);
+  g.quadraticCurveTo(-0.27, -0.53, 0, -0.51);
+  g.quadraticCurveTo(0.27, -0.53, 0.23, -0.3);
+  g.quadraticCurveTo(0.29, -0.1, 0.25, 0.02);
+  g.quadraticCurveTo(0.19, 0.04, 0.15, -0.06);
+  g.lineTo(-0.15, -0.06);
+  g.quadraticCurveTo(-0.19, 0.04, -0.25, 0.02);
+  g.quadraticCurveTo(-0.29, -0.1, -0.23, -0.3);
+  g.fill();
   g.fillStyle = '#f1c27d';
   circle(g, 0, -0.27, 0.2);
   g.fillStyle = '#6d4c41';
@@ -353,7 +365,12 @@ const drawCousin: Draw = (g, f) => {
   g.strokeRect(-0.15, -0.33, 0.12, 0.1);
   g.strokeRect(0.03, -0.33, 0.12, 0.1);
   line(g, [-0.03, -0.29, 0.03, -0.29], 0.02, '#212121');
-  line(g, [-0.07, -0.16, 0, -0.13, 0.07, -0.16], 0.02, '#8d6e63');
+  line(g, [-0.07, -0.16, 0, -0.13, 0.07, -0.16], 0.03, '#e91e63');
+  // A hair clip.
+  g.fillStyle = '#ff4081';
+  ellipse(g, 0.13, -0.42, 0.05, 0.03, -0.5);
+  g.fillStyle = '#fff';
+  circle(g, 0.13, -0.42, 0.012);
 };
 
 interface MonsterArt {
@@ -521,6 +538,53 @@ const drawCoffee: Draw = (g) => {
   ellipse(g, -0.01, -0.13, 0.24, 0.05);
   g.fillStyle = '#ff8c1a';
   g.fillRect(-0.22, 0.04, 0.42, 0.07);
+};
+
+/** A foosball: a little white ball with black patches (centred on 0,0, radius r), turned by `spin`. */
+export function drawFootball(g: G, r: number, spin: number) {
+  g.save();
+  g.rotate(spin);
+  g.fillStyle = '#fafafa';
+  g.beginPath();
+  g.arc(0, 0, r, 0, TAU);
+  g.fill();
+  g.save();
+  g.clip();
+  g.fillStyle = '#263238';
+  g.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const a = (i * TAU) / 5 - Math.PI / 2;
+    g.lineTo(Math.cos(a) * r * 0.38, Math.sin(a) * r * 0.38);
+  }
+  g.fill();
+  for (let i = 0; i < 5; i++) {
+    const a = (i * TAU) / 5 + Math.PI / 2;
+    g.beginPath();
+    g.arc(Math.cos(a) * r * 1.02, Math.sin(a) * r * 1.02, r * 0.34, 0, TAU);
+    g.fill();
+  }
+  g.restore();
+  g.strokeStyle = '#78909c';
+  g.lineWidth = r * 0.12;
+  g.beginPath();
+  g.arc(0, 0, r, 0, TAU);
+  g.stroke();
+  g.restore();
+}
+
+/** Bola de matraquilhos: a little red table-football player on its rod, and the ball. */
+const drawFoosball: Draw = (g, f) => {
+  line(g, [-0.46, -0.16, 0.46, -0.16], 0.06, '#cfd8dc');
+  g.fillStyle = '#d32f2f';
+  rrect(g, -0.34, -0.3, 0.22, 0.38, 0.07);
+  g.fillStyle = '#ffcc80';
+  circle(g, -0.23, -0.38, 0.1);
+  g.fillStyle = '#212121';
+  rrect(g, f ? -0.3 : -0.32, 0.06, 0.16, 0.12, 0.04);
+  g.save();
+  g.translate(0.17, 0.12);
+  drawFootball(g, 0.25, f ? 0.6 : 0);
+  g.restore();
 };
 
 /** A half-unwrapped chocolate bar with a bite out of it, and a little flame flickering over it. */
@@ -705,6 +769,7 @@ export const ITEM_ART: Record<ItemKind, Draw> = {
   computer: drawComputer,
   coffee: drawCoffee,
   choco: drawChoco,
+  foosball: drawFoosball,
   roach: drawRoach,
   rabbit: drawRabbit,
   bomb: drawBomb,

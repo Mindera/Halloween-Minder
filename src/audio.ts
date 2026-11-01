@@ -4,6 +4,8 @@ import { settings } from './progress';
 export type Sfx =
   | 'shoot'
   | 'flame'
+  | 'kick'
+  | 'tok'
   | 'pellet'
   | 'hit'
   | 'kill'
@@ -222,6 +224,15 @@ export class SoundBoard {
       case 'shoot':
         this.tone(320, 0.12, 'sine', 0.25, 900);
         this.tone(900, 0.06, 'triangle', 0.08, 1400, 0.05);
+        break;
+      case 'kick':
+        // A foosball shot: the clack of the little player hitting the ball.
+        this.tone(1500, 0.04, 'square', 0.12, 900);
+        this.noise(0.06, 0.25, 3200, 0, 3);
+        this.tone(220, 0.08, 'triangle', 0.15, 120);
+        break;
+      case 'tok':
+        this.tone(1250, 0.03, 'square', 0.05, 800);
         break;
       case 'flame':
         // Whoosh!

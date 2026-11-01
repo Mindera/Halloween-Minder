@@ -1,10 +1,10 @@
 import { ENEMIES, ITEMS, type EnemyKind, type ItemKind } from '../config';
-import type { Bomb, Emote, Enemy, Eye, Fx, Game, Item, LevelInfo, Light, Pet, PetShot, Phase, Player, SpawnWarning, Umbrella, Zap } from '../game';
+import type { Ball, Bomb, Emote, Enemy, Eye, Fx, Game, Item, LevelInfo, Light, Pet, PetShot, Phase, Player, SpawnWarning, Umbrella, Zap } from '../game';
 import type { Msg } from '../i18n';
 import type { GameEvent } from '../progress';
 
 /** Bumped whenever the messages change, so two different builds refuse to play together. */
-export const VERSION = 3;
+export const VERSION = 4;
 
 /** Reliable, ordered messages (JSON on the 'ctl' channel). */
 export type Ctl =
@@ -148,6 +148,7 @@ export interface Snapshot {
   enemies: Pick<Enemy, 'id' | 'kind' | 'x' | 'y' | 'hp' | 'rising' | 'stun' | 'mad' | 'flash' | 'face' | 'dir'>[];
   warnings: SpawnWarning[];
   eyes: Pick<Eye, 'id' | 'x' | 'y' | 'dir' | 'owner' | 'fire'>[];
+  balls: Pick<Ball, 'id' | 'x' | 'y' | 'z' | 'owner'>[];
   bombs: Bomb[];
   item: Pick<Item, 'kind' | 'x' | 'y' | 'life' | 'max'> | null;
   pets: Pick<Pet, 'owner' | 'kind' | 'x' | 'y' | 'life'>[];
@@ -218,6 +219,13 @@ export function encodeSnapshot(g: Game, epoch: number, seq: number): Uint8Array<
     w.u8(e.dir);
     w.u8(e.owner);
     w.u8(e.fire ? 1 : 0);
+  });
+  w.list(g.balls, (b) => {
+    w.u16(b.id);
+    w.pos(b.x);
+    w.pos(b.y);
+    w.u8(b.z * 200);
+    w.u8(b.owner);
   });
   w.list(g.bombs, (b) => {
     w.pos(b.x);
@@ -299,6 +307,7 @@ export function decodeSnapshot(buf: ArrayBuffer): Snapshot {
     })),
     warnings: r.list(() => ({ x: r.u8(), y: r.u8(), kind: ENEMY_KINDS[r.u8()], left: r.u8() / 50 })),
     eyes: r.list(() => ({ id: r.u16(), x: r.pos(), y: r.pos(), dir: r.u8(), owner: r.u8(), fire: r.u8() === 1 })),
+    balls: r.list(() => ({ id: r.u16(), x: r.pos(), y: r.pos(), z: r.u8() / 200, owner: r.u8() })),
     bombs: r.list(() => ({ x: r.pos(), y: r.pos(), fuse: r.u8() / 100 })),
     item: r.u8() ? { kind: ITEM_KINDS[r.u8()], x: r.pos(), y: r.pos(), life: r.u8() / 10, max: r.u8() / 10 } : null,
     pets: r.list(() => ({ owner: r.u8(), kind: r.u8() ? ('ghost' as const) : ('bat' as const), x: r.pos(), y: r.pos(), life: r.u8() / 10 })),
