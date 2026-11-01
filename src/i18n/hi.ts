@@ -100,6 +100,8 @@ export const hi: Dict = {
     stageOf: '{total} में से स्टेज {n}',
     empty: 'अभी कोई स्कोर नहीं। जाओ, खेलो! 🎃',
     emptyDaily: 'अभी कोई डेली रन नहीं। आज वाला खेलकर देखो! 📅',
+    climb: '🤫 गुप्त चढ़ाई',
+    climbBest: 'सबसे अच्छी चढ़ाई',
     back: 'वापस',
   },
   language: {

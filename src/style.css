@@ -1059,6 +1059,9 @@ h3 {
   margin-inline-start: auto;
   color: var(--yellow);
 }
+.climb-record li::before {
+  content: '🏆';
+}
 
 /* game over */
 .greeting {

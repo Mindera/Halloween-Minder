@@ -105,6 +105,8 @@ export const en = {
     stageOf: 'Stage {n} of {total}',
     empty: 'No scores yet. Go play! 🎃',
     emptyDaily: "No daily runs yet. Try today's! 📅",
+    climb: '🤫 Secret climb',
+    climbBest: 'Best climb',
     back: 'Back',
   },
   language: {

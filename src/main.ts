@@ -13,7 +13,7 @@ import {
   type ItemKind,
   type MinderDef,
 } from './config';
-import { Climb } from './climb';
+import { Climb, climbRecord } from './climb';
 import { buzz } from './feedback';
 import { Flingable } from './fling';
 import { Game } from './game';
@@ -298,6 +298,7 @@ class App {
     flush();
     this.climb.start({
       home: $<HTMLImageElement>('title-minder'),
+      minder: m.id,
       panel: document.querySelector<HTMLElement>('#screen-title .title-panel')!,
       src: minderSrc(m.id),
       iris: m.iris,
@@ -657,6 +658,14 @@ class App {
           )
           .join('')
       : `<li style="justify-content:center">${t('scores.emptyDaily')}</li>`;
+    // The secret climb only shows up here once it has been found and played.
+    const climb = climbRecord();
+    $('climb-title').hidden = $('climb-list').hidden = !climb;
+    if (climb) {
+      const who = climb.minder && MINDERS.some((m) => m.id === climb.minder) ? `<img src="${minderSrc(climb.minder)}" alt="" />` : '';
+      const when = climb.date ? `<br><small>${new Date(climb.date).toLocaleDateString(getLang())}</small>` : '';
+      $('climb-list').innerHTML = `<li>${who}<span>${t('scores.climbBest')}${when}</span><b>${climb.score.toLocaleString('en-US')}</b></li>`;
+    }
   }
 
   // ------------------------------------------------------------ game flow

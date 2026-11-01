@@ -100,6 +100,8 @@ export const vi: Dict = {
     stageOf: 'Chặng {n} trên {total}',
     empty: 'Chưa có điểm nào. Vào chơi thôi! 🎃',
     emptyDaily: 'Chưa chơi thử thách nào. Thử ngay hôm nay nhé! 📅',
+    climb: '🤫 Leo trèo bí mật',
+    climbBest: 'Lần leo tốt nhất',
     back: 'Quay lại',
   },
   language: {

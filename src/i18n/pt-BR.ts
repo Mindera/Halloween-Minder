@@ -101,6 +101,8 @@ export const ptBR: Dict = {
     stageOf: 'Fase {n} de {total}',
     empty: 'Nenhum recorde ainda. Bora jogar! 🎃',
     emptyDaily: 'Nenhum desafio jogado ainda. Experimente o de hoje! 📅',
+    climb: '🤫 Escalada secreta',
+    climbBest: 'Melhor escalada',
     back: 'Voltar',
   },
   language: {

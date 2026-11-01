@@ -100,6 +100,8 @@ export const ar: Dict = {
     stageOf: 'المرحلة {n} من {total}',
     empty: 'لا توجد نتائج بعد. هيا العب! 🎃',
     emptyDaily: 'لا توجد جولات يومية بعد. جرّب تحدي اليوم! 📅',
+    climb: '🤫 التسلّق السرّي',
+    climbBest: 'أفضل تسلّق',
     back: 'رجوع',
   },
   language: {

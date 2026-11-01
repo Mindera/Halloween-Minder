@@ -100,6 +100,8 @@ export const ro: Dict = {
     stageOf: 'Etapa {n} din {total}',
     empty: 'Niciun scor încă. Hai la joacă! 🎃',
     emptyDaily: 'Nicio provocare jucată încă. Încearc-o pe cea de azi! 📅',
+    climb: '🤫 Escaladarea secretă',
+    climbBest: 'Cea mai bună escaladare',
     back: 'Înapoi',
   },
   language: {

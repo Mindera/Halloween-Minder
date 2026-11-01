@@ -100,6 +100,8 @@ export const es: Dict = {
     stageOf: 'Fase {n} de {total}',
     empty: 'Aún no hay récords. ¡A jugar! 🎃',
     emptyDaily: 'Todavía no hay desafíos diarios. ¡Prueba el de hoy! 📅',
+    climb: '🤫 Escalada secreta',
+    climbBest: 'Mejor escalada',
     back: 'Volver',
   },
   language: {

@@ -65,7 +65,8 @@ export interface ClimbStart {
   home: HTMLImageElement;
   /** The title panel, which scrolls away underneath. */
   panel: HTMLElement;
-  /** The selected Minder's picture, the colour of its eyeballs and where its eye is (0..1). */
+  /** The selected Minder (its id, kept with the best score), its picture, the colour of its eyeballs and where its eye is (0..1). */
+  minder: string;
   src: string;
   iris: string;
   eye: [number, number];
@@ -79,20 +80,37 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const easeInOut = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 const easeOut = (k: number) => 1 - Math.pow(1 - k, 3);
 
-interface Best {
+export interface ClimbBest {
   score: number;
   /** Highest point reached, in unscaled px. */
   height: number;
+  /** Who set the best score, and when (records from before these were kept have neither). */
+  minder?: string;
+  date?: number;
 }
+type Best = ClimbBest;
 
 function loadBest(): Best {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Best> | null;
-    if (raw && typeof raw.score === 'number') return { score: raw.score, height: Number(raw.height) || 0 };
+    if (raw && typeof raw.score === 'number') {
+      return {
+        score: raw.score,
+        height: Number(raw.height) || 0,
+        minder: typeof raw.minder === 'string' ? raw.minder : undefined,
+        date: typeof raw.date === 'number' ? raw.date : undefined,
+      };
+    }
   } catch {
     /* ignore */
   }
   return { score: 0, height: 0 };
+}
+
+/** The best climb on this device, or null if the secret climb was never played (for the High scores screen). */
+export function climbRecord(): ClimbBest | null {
+  const b = loadBest();
+  return b.score > 0 || b.height > 0 ? b : null;
 }
 
 function saveBest(b: Best) {
@@ -230,6 +248,7 @@ export class Climb {
   private climbed = 0;
   private bonus = 0;
   private best: Best = { score: 0, height: 0 };
+  private minder = '';
   private passedBest = false;
   private shown = { score: '', best: '' };
 
@@ -259,10 +278,11 @@ export class Climb {
   private onBubbleTap = () => this.dismissBubble(true);
 
   /** Starts from the title Minder's spot. Returns false when it can't (image hidden or not loaded). */
-  start({ home, panel, src, iris, eye, announce }: ClimbStart): boolean {
+  start({ home, panel, minder, src, iris, eye, announce }: ClimbStart): boolean {
     if (this.active || !home.offsetWidth || !home.naturalWidth) return false;
     this.dismissBubble();
     this.active = true;
+    this.minder = minder;
     this.home = home;
     this.panel = panel;
     this.iris = iris;
@@ -871,7 +891,8 @@ export class Climb {
     const best = this.best;
     const score = this.score;
     const height = this.climbed / this.S;
-    if (score > best.score || height > best.height) saveBest({ score: Math.max(score, best.score), height: Math.max(height, best.height) });
+    if (score > best.score) saveBest({ score, height: Math.max(height, best.height), minder: this.minder, date: Date.now() });
+    else if (height > best.height) saveBest({ ...best, height });
   }
 
   private finish() {

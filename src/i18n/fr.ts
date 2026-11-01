@@ -100,6 +100,8 @@ export const fr: Dict = {
     stageOf: 'Étape {n} sur {total}',
     empty: 'Pas encore de score. Allez, on joue ! 🎃',
     emptyDaily: "Pas encore de défi du jour. Essaie celui d'aujourd'hui ! 📅",
+    climb: '🤫 Escalade secrète',
+    climbBest: 'Meilleure escalade',
     back: 'Retour',
   },
   language: {
