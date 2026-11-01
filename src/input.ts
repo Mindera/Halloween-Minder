@@ -1,3 +1,5 @@
+import { buzz } from './feedback';
+
 /** One player's controls. */
 export class Pad {
   /** Buffered direction: applied at the next junction where it fits. */
@@ -149,6 +151,8 @@ export class Input {
       if (Math.hypot(dx, dy) < r.width * 0.12) return;
       const d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0;
       if (this.enabled) this.pads[i].steer(d);
+      // A tiny tick under the thumb each time the pad picks up a new direction, so a turn is felt as it registers.
+      if (this.enabled && el.dataset.dir !== String(d)) buzz('light');
       el.dataset.dir = String(d);
     };
     el.addEventListener('pointerdown', (e) => {

@@ -233,6 +233,8 @@ export interface StartOptions {
 }
 
 const PLAYER_SPEED = 5.2;
+/** A side turn asked for up to this far (in tiles) after passing a junction still takes it, by cutting the corner. */
+const CORNER_GRACE = 0.45;
 const EYE_SPEED = 11;
 const SPLAT: Record<EnemyKind, string[]> = {
   zombie: ['#86c66b', '#5b7fa3', '#9ad97a'],
@@ -814,6 +816,7 @@ export class Game {
       p.next = d;
     }
     if (p.dir >= 0 && p.next === opposite(p.dir)) p.dir = p.next;
+    this.cornerTurn(p);
     const speed = PLAYER_SPEED * (this.has('spice') ? 1.55 : 1) * (this.has('pig') ? 0.8 : 1);
     const before = p.x + p.y;
     this.advance(p, speed * dt, () => this.playerDecide(p));
@@ -927,6 +930,25 @@ export class Game {
 
   private open(x: number, y: number, d: number) {
     return !isWall(this.maze, x + DIRS[d].x, y + DIRS[d].y);
+  }
+
+  /**
+   * Forgiving turns (like the arcade classics): a side turn that comes in just after the minder passed the middle
+   * of a junction is still taken. The minder cuts the corner instead of missing the turn and running on.
+   */
+  private cornerTurn(p: Player) {
+    if (p.dir < 0 || p.next < 0 || p.next === p.dir || p.next === opposite(p.dir)) return;
+    const tx = Math.floor(p.x);
+    const ty = Math.floor(p.y);
+    const d = DIRS[p.dir];
+    const past = (p.x - tx - 0.5) * d.x + (p.y - ty - 0.5) * d.y;
+    if (past <= 0 || past > CORNER_GRACE) return;
+    // Not on a portal: the minder already came out of it at the middle of this tile.
+    if (!this.open(tx, ty, p.next) || this.links[ty * this.maze.w + tx] >= 0) return;
+    const n = DIRS[p.next];
+    p.x = tx + 0.5 + n.x * past;
+    p.y = ty + 0.5 + n.y * past;
+    p.dir = p.face = p.next;
   }
 
   private playerDecide(p: Player) {

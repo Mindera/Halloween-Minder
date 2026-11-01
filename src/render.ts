@@ -1384,6 +1384,26 @@ export class Renderer {
       }
     }
     ctx.restore();
+    // A turn pressed early waits for the next opening: a little arrow on that side shows it's queued.
+    if (p.alive && p.emote === 'none' && game.phase === 'play' && p.dir >= 0 && p.next >= 0 && p.next !== p.dir) {
+      const d = DIRS[p.next];
+      const s = T * 0.2 * (1 + Math.sin(game.time * 10) * 0.12);
+      ctx.save();
+      ctx.translate(p.x * T + d.x * T * 0.66, p.y * T + d.y * T * 0.66);
+      ctx.rotate(Math.atan2(d.y, d.x));
+      ctx.beginPath();
+      ctx.moveTo(s, 0);
+      ctx.lineTo(-s * 0.6, -s * 0.85);
+      ctx.lineTo(-s * 0.6, s * 0.85);
+      ctx.closePath();
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = Math.max(2, T * 0.06);
+      ctx.strokeStyle = '#1a0b2e';
+      ctx.stroke();
+      ctx.fillStyle = PLAYER_TAGS[p.id];
+      ctx.fill();
+      ctx.restore();
+    }
     if (p.emote !== 'none' && t < 1.6) {
       const text = p.emote === 'cheer' ? tr(p.id ? 'pop.woohoo' : 'pop.yay') : tr('pop.waah');
       this.bubble(p.x * T, p.y * T - T * 1.05, text, p.emote === 'cheer' ? '#ffd400' : '#81d4fa');
