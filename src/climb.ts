@@ -71,8 +71,6 @@ export interface ClimbStart {
   src: string;
   iris: string;
   eye: [number, number];
-  /** Shown as the game opens, e.g. the sticker for finding it. */
-  announce?: string;
 }
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -279,7 +277,7 @@ export class Climb {
   private onBubbleTap = () => this.dismissBubble(true);
 
   /** Starts from the title Minder's spot. Returns false when it can't (image hidden or not loaded). */
-  start({ home, panel, minder, src, iris, eye, announce }: ClimbStart): boolean {
+  start({ home, panel, minder, src, iris, eye }: ClimbStart): boolean {
     if (this.active || !home.offsetWidth || !home.naturalWidth) return false;
     this.dismissBubble();
     this.active = true;
@@ -312,7 +310,7 @@ export class Climb {
     root.setAttribute('aria-hidden', 'true');
     const canvas = document.createElement('canvas');
     const touch = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-    root.innerHTML = `<div class="climb-hud"><span>${t('hud.score')}<b></b></span><span>${t('climb.best')}<b></b></span></div><p class="climb-badge" hidden></p><p class="climb-hint"></p>`;
+    root.innerHTML = `<div class="climb-hud"><span>${t('hud.score')}<b></b></span><span>${t('climb.best')}<b></b></span></div><p class="climb-hint"></p>`;
     root.prepend(canvas);
     document.body.appendChild(root);
     this.root = root;
@@ -322,13 +320,6 @@ export class Climb {
     this.hintEl = root.querySelector<HTMLElement>('.climb-hint')!;
     this.hintEl.textContent = t(touch ? 'climb.hintTouch' : 'climb.hintKeys');
     this.shown = { score: '', best: '' };
-    if (announce) {
-      const badge = root.querySelector<HTMLElement>('.climb-badge')!;
-      badge.textContent = `🥚 ${announce}`;
-      badge.hidden = false;
-      window.setTimeout(() => badge.classList.add('gone'), 3600);
-      window.setTimeout(() => this.root === root && audio.play('item'), 450);
-    }
 
     this.resize();
     this.S = clamp(this.colW / 420, 0.8, 1.2);

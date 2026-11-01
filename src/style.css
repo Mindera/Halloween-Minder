@@ -694,8 +694,7 @@ h3 {
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
-.climb-hint,
-.climb-badge {
+.climb-hint {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -716,21 +715,9 @@ h3 {
   bottom: calc(18px + var(--safe-b));
   animation: fade 0.6s ease-out;
 }
-/* "New sticker: Found the secret!" as the game opens. */
-.climb-badge {
-  top: calc(46px + var(--safe-t));
-  background: var(--m-yellow);
-  border-color: var(--m-black);
-  color: var(--m-black);
-  font-weight: 700;
-  box-shadow: 0 0 24px rgba(255, 199, 0, 0.45);
-  animation: badge-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) backwards;
-}
 .climb-hint.gone,
-.climb-badge.gone,
 .climb.ending .climb-hud,
-.climb.ending .climb-hint,
-.climb.ending .climb-badge {
+.climb.ending .climb-hint {
   opacity: 0;
 }
 .climb-bubble {
@@ -802,12 +789,6 @@ h3 {
   from {
     opacity: 0;
     transform: translate(-50%, -100%) scale(0.3);
-  }
-}
-@keyframes badge-pop {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.4);
   }
 }
 
@@ -1536,6 +1517,107 @@ html[dir='rtl'] #banner {
 .sticker small {
   color: var(--muted);
   font-weight: 600;
+}
+/* The big one (finishing all 100 levels): a full-width, golden card. */
+.sticker.big {
+  grid-column: 1 / -1;
+  padding: 12px 10px 14px;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at top, rgba(255, 213, 79, 0.22), rgba(255, 213, 79, 0.04) 70%);
+  border: 2px solid rgba(255, 213, 79, 0.5);
+  font-size: 17px;
+  color: #ffe082;
+}
+.sticker.big .face {
+  width: 124px;
+  height: 124px;
+  font-size: 68px;
+  border-width: 6px;
+  box-shadow:
+    0 5px 0 rgba(0, 0, 0, 0.35),
+    0 0 30px rgba(255, 213, 79, 0.7);
+  animation: champion-glow 2.4s ease-in-out infinite;
+}
+.sticker.big.locked .face {
+  animation: none;
+}
+@keyframes champion-glow {
+  50% {
+    box-shadow:
+      0 5px 0 rgba(0, 0, 0, 0.35),
+      0 0 46px rgba(255, 213, 79, 1);
+  }
+}
+
+/* A new sticker drops in at the top of the screen (over everything, the secret climb too). */
+#sticker-pop {
+  position: fixed;
+  left: 50%;
+  top: calc(64px + var(--safe-t));
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 24px));
+  padding: 10px 16px 10px 10px;
+  border-radius: 20px;
+  background: rgba(20, 6, 36, 0.95);
+  border: 3px solid #ffd54f;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 24px rgba(255, 213, 79, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -24px) scale(0.9);
+  transition:
+    opacity 0.3s,
+    transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+#sticker-pop.show {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+#sticker-pop .face {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 30px;
+  background: radial-gradient(circle at 35% 30%, #fff8e1, #ffd54f 60%, #ff9800);
+  border: 4px solid #fff;
+  transform: rotate(-6deg);
+}
+#sticker-pop .text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+#sticker-pop b {
+  color: #ffd54f;
+  font-size: 16px;
+}
+#sticker-pop small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+#sticker-pop.big {
+  flex-direction: column;
+  padding: 16px 20px;
+  text-align: center;
+  border-width: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 50px rgba(255, 213, 79, 0.7);
+}
+#sticker-pop.big .face {
+  width: 104px;
+  height: 104px;
+  font-size: 58px;
+  animation: champion-glow 2.4s ease-in-out infinite;
+}
+#sticker-pop.big b {
+  font-size: 20px;
 }
 
 .release {

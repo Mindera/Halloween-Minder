@@ -127,6 +127,10 @@ export const ar: Dict = {
   stickers: {
     title: 'دفتر الملصقات',
     count: 'الملصقات: {n} من {total}',
+    seeAll: 'شاهدها كلها في 🏅 الملصقات في الشاشة الرئيسية',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'أنهيت كل المستويات المئة',
     firstBonk: 'أول ضربة!',
     bonk500: 'ضربت 500 وحش',
     crates100: 'حطّمت 100 صندوق',

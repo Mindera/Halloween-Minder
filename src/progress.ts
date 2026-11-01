@@ -80,6 +80,8 @@ export interface Stats {
   pets: number;
   /** Times the title screen's secret climb was found. */
   secrets: number;
+  /** Arcade games won: all 100 levels cleared. */
+  wins: number;
   items: string[];
 }
 
@@ -87,7 +89,7 @@ const STATS_KEY = 'hm.stats';
 const STICKERS_KEY = 'hm.stickers';
 export const stats: Stats = read<Stats>(STATS_KEY, {
   crates: 0, kills: 0, bombKills: 0, rabbits: 0, teleports: 0, bossKills: 0, bossBombOnly: 0, bestBlast: 0,
-  maxLevel: 0, partyClears: 0, squidClears: 0, dailyClears: 0, coopClears: 0, fastClears: 0, doors: 0, pets: 0, secrets: 0, items: [],
+  maxLevel: 0, partyClears: 0, squidClears: 0, dailyClears: 0, coopClears: 0, fastClears: 0, doors: 0, pets: 0, secrets: 0, wins: 0, items: [],
 });
 const earned = new Set<string>(read<{ list: string[] }>(STICKERS_KEY, { list: [] }).list);
 
@@ -100,9 +102,13 @@ export interface Sticker {
   progress: (s: Stats) => [number, number];
   /** Its name stays hidden in the sticker book until it is earned. */
   secret?: boolean;
+  /** A big one: a full-width card in the sticker book and a bigger popup (with a `stickers.<id>Sub` line). */
+  big?: boolean;
 }
 
 export const STICKERS: Sticker[] = [
+  // Say it three times... for finishing all 100 levels.
+  { id: 'champion', icon: '🪲', progress: (s) => [s.wins, 1], big: true },
   { id: 'firstBonk', icon: '👁️', progress: (s) => [s.kills, 1] },
   { id: 'bonk500', icon: '💥', progress: (s) => [s.kills, 500] },
   { id: 'crates100', icon: '📦', progress: (s) => [s.crates, 100] },
@@ -141,7 +147,8 @@ export type GameEvent =
   | { type: 'dailyClear' }
   | { type: 'door' }
   | { type: 'pet' }
-  | { type: 'secret' };
+  | { type: 'secret' }
+  | { type: 'victory' };
 
 export interface Rewards {
   stickers: Sticker[];
@@ -192,6 +199,9 @@ export function record(e: GameEvent, arcade: boolean): Rewards {
       break;
     case 'secret':
       stats.secrets++;
+      break;
+    case 'victory':
+      if (arcade) stats.wins++;
       break;
   }
   const rewards: Rewards = { stickers: [], costumes: [] };

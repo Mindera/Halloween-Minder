@@ -127,6 +127,10 @@ export const ro: Dict = {
   stickers: {
     title: 'Albumul cu abțibilduri',
     count: 'Abțibilduri: {n}/{total}',
+    seeAll: 'Vezi-le pe toate la 🏅 Abțibilduri, pe ecranul de start',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'Toate cele 100 de niveluri terminate',
     firstBonk: 'Prima pocnitură!',
     bonk500: '500 de monștri pocniți',
     crates100: '100 de lăzi sparte',

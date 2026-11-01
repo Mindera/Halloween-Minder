@@ -40,6 +40,7 @@ import {
   stats,
   type GameEvent,
   type Settings,
+  type Sticker,
 } from './progress';
 import { Renderer, type Rect } from './render';
 import { buildCard, fallbackLinks, shareScore, type ShareInfo } from './share';
@@ -96,6 +97,8 @@ class App {
   private hud = new Map<string, string>();
   private toastTimer = 0;
   private toastQueue: { text: string; color: string }[] = [];
+  private stickerQueue: Sticker[] = [];
+  private stickerShowing = false;
   private settingsFrom = 'screen-title';
   private bannerTimer = 0;
   private partyTimer = 0;
@@ -322,7 +325,7 @@ class App {
     this.throws = 0;
     this.pullHint(0);
     const m = this.minders[0];
-    // Finding it is worth a sticker (announced inside the game, which covers the toasts).
+    // Finding it is worth a sticker (its popup shows over the game).
     const { stickers } = record({ type: 'secret' }, true);
     flush();
     this.climb.start({
@@ -332,11 +335,40 @@ class App {
       src: minderSrc(m.id),
       iris: m.iris,
       eye: m.eye,
-      announce: stickers.map((s) => this.stickerMessage(s.id)).join(' ') || undefined,
     });
+    for (const s of stickers) this.stickerPop(s);
   }
 
   // ------------------------------------------------------------ progress, stickers, costumes, settings
+
+  /** A new sticker: a card drops in at the top of the screen (one at a time) and says where to see them all. */
+  private stickerPop(s: Sticker) {
+    this.stickerQueue.push(s);
+    if (!this.stickerShowing) this.nextSticker();
+  }
+
+  private nextSticker() {
+    const el = $('sticker-pop');
+    const s = this.stickerQueue.shift();
+    this.stickerShowing = !!s;
+    if (!s) return;
+    el.className = s.big ? 'big' : '';
+    el.innerHTML = '<div class="face"></div><div class="text"><b></b><small></small></div>';
+    el.querySelector('.face')!.textContent = s.icon;
+    el.querySelector('b')!.textContent = this.stickerMessage(s.id);
+    el.querySelector('small')!.textContent = t('stickers.seeAll');
+    el.hidden = false;
+    void el.offsetWidth; // restart the drop-in animation
+    el.classList.add('show');
+    audio.play(s.big ? 'clear' : 'item');
+    window.setTimeout(() => {
+      el.classList.remove('show');
+      window.setTimeout(() => {
+        el.hidden = true;
+        this.nextSticker();
+      }, 350);
+    }, s.big ? 6500 : 4000);
+  }
 
   /** Sticker names may already end in "!" (and the message adds one), so collapse "!!" / "! !". */
   private stickerMessage(id: string) {
@@ -345,9 +377,9 @@ class App {
 
   private onEvent(e: GameEvent) {
     const { stickers, costumes } = record(e, !this.game.daily);
-    for (const s of stickers) this.toast(this.stickerMessage(s.id), '#ffd54f', true);
+    for (const s of stickers) this.stickerPop(s);
     for (const c of costumes) this.toast(t('toast.costume', { name: t(`wardrobe.${c}`) }), '#b2ff59', true);
-    if (stickers.length || costumes.length) audio.play('item');
+    if (costumes.length) audio.play('item');
     if (stickers.length || costumes.length || e.type === 'clear' || e.type === 'reach') flush();
   }
 
@@ -359,7 +391,8 @@ class App {
       const [cur, goal] = s.progress(stats);
       const tilt = ((i * 37) % 13) - 6;
       const name = !got && s.secret ? t('stickers.secretLocked') : t(`stickers.${s.id}`);
-      return `<div class="sticker${got ? '' : ' locked'}"><div class="face" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>${name}${got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`}</div>`;
+      const sub = s.big ? `<small>${t(`stickers.${s.id}Sub`)}</small>` : got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`;
+      return `<div class="sticker${got ? '' : ' locked'}${s.big ? ' big' : ''}"><div class="face" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>${name}${sub}</div>`;
     }).join('');
   }
 

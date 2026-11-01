@@ -127,6 +127,10 @@ export const es: Dict = {
   stickers: {
     title: 'Álbum de stickers',
     count: '{n} de {total} stickers',
+    seeAll: 'Míralos todos en 🏅 Stickers en la pantalla de inicio',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'Los 100 niveles completados',
     firstBonk: '¡Primer coscorrón!',
     bonk500: '500 monstruos derrotados',
     crates100: '100 cajas rotas',

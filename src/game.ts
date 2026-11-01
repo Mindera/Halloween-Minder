@@ -699,7 +699,10 @@ export class Game {
       this.stage++;
       return this.startLevel(DAILY_STAGES[this.stage]);
     }
-    if (this.level >= MAX_LEVEL) return this.win();
+    if (this.level >= MAX_LEVEL) {
+      this.cb.event({ type: 'victory' });
+      return this.win();
+    }
     this.startLevel(this.level + 1);
   }
 

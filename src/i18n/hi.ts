@@ -127,6 +127,10 @@ export const hi: Dict = {
   stickers: {
     title: 'स्टिकर बुक',
     count: '{total} में से {n} स्टिकर',
+    seeAll: 'सारे स्टिकर मुख्य स्क्रीन पर 🏅 स्टिकर में देखो',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'सभी 100 लेवल पूरे किए',
     firstBonk: 'पहला वार!',
     bonk500: '500 मॉन्स्टर्स ठोके',
     crates100: '100 बक्से तोड़े',

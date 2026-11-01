@@ -127,6 +127,10 @@ export const vi: Dict = {
   stickers: {
     title: 'Sổ hình dán',
     count: '{n}/{total} hình dán',
+    seeAll: 'Xem tất cả trong 🏅 Hình dán ở màn hình chính',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'Hoàn thành cả 100 màn',
     firstBonk: 'Cú cốc đầu đầu tiên!',
     bonk500: 'Hạ 500 quái vật',
     crates100: 'Phá 100 thùng gỗ',

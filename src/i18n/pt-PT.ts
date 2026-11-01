@@ -128,6 +128,10 @@ export const ptPT: Dict = {
   stickers: {
     title: 'Caderneta de cromos',
     count: '{n} de {total} cromos',
+    seeAll: 'Vê todos em 🏅 Cromos no ecrã inicial',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'Os 100 níveis concluídos',
     firstBonk: 'Primeiro monstro!',
     bonk500: '500 monstros derrubados',
     crates100: '100 caixas partidas',

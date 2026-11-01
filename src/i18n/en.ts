@@ -132,6 +132,10 @@ export const en = {
   stickers: {
     title: 'Sticker book',
     count: '{n} of {total} stickers',
+    seeAll: 'See them all in 🏅 Stickers on the title screen',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'Finished all 100 levels',
     firstBonk: 'First bonk!',
     bonk500: 'Bonked 500 monsters',
     crates100: 'Smashed 100 crates',

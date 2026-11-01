@@ -128,6 +128,10 @@ export const ptBR: Dict = {
   stickers: {
     title: 'Álbum de figurinhas',
     count: '{n} de {total} figurinhas',
+    seeAll: 'Veja todas em 🏅 Figurinhas na tela inicial',
+    /** Say it three times (a name: the same in every language). */
+    champion: 'Bettleminder Bettleminder Bettleminder',
+    championSub: 'Os 100 níveis concluídos',
     firstBonk: 'Primeiro monstro!',
     bonk500: '500 monstros derrubados',
     crates100: '100 caixas quebradas',
