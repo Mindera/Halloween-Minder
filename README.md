@@ -1,7 +1,7 @@
 # Halloween Minder 🎃👁️
 
 
-[![Launch video](docs/launch.jpg)](docs/launch.mp4)
+<video src="https://github.com/Mindera/Halloween-Minder/raw/main/docs/launch.mp4" controls muted playsinline width="360"></video>
 
 *24s launch video (normal game, tablet co-op, stickers, the secret climb and high scores), made with [/brag](https://github.com/latent-spaces/brag).*
 **Happy Halloween. With love, Mindera.**
