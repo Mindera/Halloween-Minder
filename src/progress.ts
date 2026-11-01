@@ -108,8 +108,6 @@ export interface Sticker {
   big?: boolean;
   /** Has a `stickers.<id>Sub` line saying what it's for. */
   sub?: boolean;
-  /** The icon is shown upside down (Manita: a hand walking on its fingers, like the Addams Family's). */
-  flip?: boolean;
 }
 
 export const STICKERS: Sticker[] = [
@@ -119,7 +117,7 @@ export const STICKERS: Sticker[] = [
   { id: 'bonk500', icon: '💥', progress: (s) => [s.kills, 500] },
   { id: 'crates100', icon: '📦', progress: (s) => [s.crates, 100] },
   { id: 'bigBlast', icon: '🎃', progress: (s) => [s.bestBlast, 3] },
-  { id: 'manita', icon: '🖐️', progress: (s) => [s.bestStreak, 5], sub: true, flip: true },
+  { id: 'manita', icon: '🖐️', progress: (s) => [s.bestStreak, 5], sub: true },
   { id: 'rabbit5', icon: '🐇', progress: (s) => [s.rabbits, 5] },
   { id: 'teleport50', icon: '🌀', progress: (s) => [s.teleports, 50] },
   { id: 'boss', icon: '🤓', progress: (s) => [s.bossKills, 1] },

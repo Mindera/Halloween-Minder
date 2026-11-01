@@ -355,9 +355,7 @@ class App {
     if (!s) return;
     el.className = s.big ? 'big' : '';
     el.innerHTML = '<div class="face"></div><div class="text"><b></b><small></small></div>';
-    const face = el.querySelector('.face')!;
-    face.textContent = s.icon;
-    face.classList.toggle('flip', !!s.flip);
+    el.querySelector('.face')!.textContent = s.icon;
     el.querySelector('b')!.textContent = this.stickerMessage(s.id);
     el.querySelector('small')!.textContent = t('stickers.seeAll');
     el.hidden = false;
@@ -396,7 +394,7 @@ class App {
       const name = !got && s.secret ? t('stickers.secretLocked') : t(`stickers.${s.id}`);
       const sub = s.sub ? `<small class="what">${t(`stickers.${s.id}Sub`)}</small>` : '';
       const count = got || goal <= 1 ? '' : `<small>${Math.min(cur, goal)}/${goal}</small>`;
-      const face = `<div class="face${got && s.flip ? ' flip' : ''}" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>`;
+      const face = `<div class="face" style="--tilt:${tilt}deg">${got ? s.icon : '?'}</div>`;
       return `<div class="sticker${got ? '' : ' locked'}${s.big ? ' big' : ''}">${face}${name}${sub}${count}</div>`;
     }).join('');
   }
