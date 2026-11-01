@@ -1349,6 +1349,20 @@ html[dir='rtl'] #banner {
 .lang-list button[lang='vi'] {
   font-family: 'Baloo 2', sans-serif;
 }
+.lang-list button.auto {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+}
+.lang-list button.auto small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
 .lang-list button.selected {
   border-color: var(--yellow);
   background: rgba(255, 212, 0, 0.16);

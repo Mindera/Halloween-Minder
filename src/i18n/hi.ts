@@ -109,6 +109,9 @@ export const hi: Dict = {
   },
   language: {
     title: 'भाषा',
+    /** Follow the browser's language (the default). */
+    auto: 'अपने-आप (ब्राउज़र की भाषा)',
+    autoShort: 'अपने-आप',
   },
   settings: {
     title: 'सेटिंग्स',

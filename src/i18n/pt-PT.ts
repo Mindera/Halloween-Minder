@@ -110,6 +110,9 @@ export const ptPT: Dict = {
   },
   language: {
     title: 'Idioma',
+    /** Follow the browser's language (the default). */
+    auto: 'Automático (idioma do browser)',
+    autoShort: 'Automático',
   },
   settings: {
     title: 'Definições',

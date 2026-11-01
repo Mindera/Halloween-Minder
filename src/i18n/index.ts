@@ -37,14 +37,33 @@ export function getLang(): Lang {
 
 export const isRtl = () => lang === 'ar';
 
-/** Saved choice first, then the device's languages (pt-BR only for Brazil, other Portuguese gets pt-PT). */
-export function detectLang(): Lang {
+/** The language picked under Settings, or null to follow the browser (the default). */
+export function savedLang(): Lang | null {
   try {
     const saved = localStorage.getItem(KEY) as Lang | null;
     if (saved && LANGS.some((l) => l.id === saved)) return saved;
   } catch {
     /* ignore */
   }
+  return null;
+}
+
+/** Follow the browser's language again: forget the one picked under Settings. */
+export function forgetLang() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** A language picked under Settings, otherwise the browser's. */
+export function detectLang(): Lang {
+  return savedLang() ?? browserLang();
+}
+
+/** The first of the browser's languages that the game speaks (pt-BR only for Brazil, other Portuguese gets pt-PT). */
+export function browserLang(): Lang {
   for (const tag of navigator.languages ?? [navigator.language]) {
     const [base, region] = tag.toLowerCase().split('-');
     if (base === 'pt') return region === 'br' ? 'pt-BR' : 'pt-PT';

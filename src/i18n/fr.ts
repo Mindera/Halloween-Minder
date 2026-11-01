@@ -109,6 +109,9 @@ export const fr: Dict = {
   },
   language: {
     title: 'Langue',
+    /** Follow the browser's language (the default). */
+    auto: 'Automatique (langue du navigateur)',
+    autoShort: 'Automatique',
   },
   settings: {
     title: 'Réglages',

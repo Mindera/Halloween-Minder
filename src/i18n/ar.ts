@@ -109,6 +109,9 @@ export const ar: Dict = {
   },
   language: {
     title: 'اللغة',
+    /** Follow the browser's language (the default). */
+    auto: 'تلقائي (لغة المتصفح)',
+    autoShort: 'تلقائي',
   },
   settings: {
     title: 'الإعدادات',

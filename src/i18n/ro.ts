@@ -109,6 +109,9 @@ export const ro: Dict = {
   },
   language: {
     title: 'Limbă',
+    /** Follow the browser's language (the default). */
+    auto: 'Automat (limba browserului)',
+    autoShort: 'Automat',
   },
   settings: {
     title: 'Setări',
